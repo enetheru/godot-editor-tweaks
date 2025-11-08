@@ -1,0 +1,6 @@
+[gd_resource type="RichTextEffect" load_steps=2 format=3 uid="uid://dfpw44u1vi1i6"]
+
+[ext_resource type="Script" uid="uid://bhxa3lxbwrjky" path="res://addons/enetheru.enhancements/sideways.gd" id="1_w8mms"]
+
+[resource]
+script = ExtResource("1_w8mms")
