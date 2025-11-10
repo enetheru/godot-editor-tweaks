@@ -1,8 +1,12 @@
 @tool
 extends EditorPlugin
 
-const SettingsMgr = preload('settings.gd')
-var settings_mgr : SettingsMgr
+# TODO make the plugin more bare bones that check for dependencies before
+# loading, that way we might be able to devise a way to automatically clone
+# and update plugins like the vim lazy codebase does.
+
+const SettingsHelper = preload('uid://b0mfrmvvxnr01')
+var settings_mgr : SettingsHelper
 
 # ██████  ██████   ██████  ██████  ███████ ██████  ████████ ██ ███████ ███████ #
 # ██   ██ ██   ██ ██    ██ ██   ██ ██      ██   ██    ██    ██ ██      ██      #
@@ -25,11 +29,6 @@ var editorlog_font_names : PackedStringArray = [
 	'output_source_bold_italic',
 	'output_source_mono']
 
-@export_group("Individual")
-## Clear all settings when unloading plugin
-@export_custom( PROPERTY_HINT_NONE, "", PROPERTY_USAGE_EDITOR_BASIC_SETTING)
-var self_destruct : bool = false
-
 #      ██████  ██    ██ ███████ ██████  ██████  ██ ██████  ███████ ███████     #
 #     ██    ██ ██    ██ ██      ██   ██ ██   ██ ██ ██   ██ ██      ██          #
 #     ██    ██ ██    ██ █████   ██████  ██████  ██ ██   ██ █████   ███████     #
@@ -39,16 +38,12 @@ func                        ________OVERRIDES________              ()->void:pass
 
 func _enter_tree() -> void:
 	print("Starting Enhancement Addon")
-	settings_mgr = SettingsMgr.new(self, "plugin/enhancements")
+	settings_mgr = SettingsHelper.new(self, "plugin/enetheru-editor-tweaks")
 
 	#editor_theme = EditorInterface.get_editor_theme()
 	#var button_icon : Texture2D = editor_theme.get_icon("Button", "EditorIcons")
 	#add_custom_type("RichIconButton", "Control", preload('ui/rich_icon_button.gd'), button_icon)
 
-
-func _exit_tree() -> void:
-	# Clean-up of the plugin goes here.
-	if self_destruct: settings_mgr.scrub()
 
 #         ███    ███ ███████ ████████ ██   ██  ██████  ██████  ███████         #
 #         ████  ████ ██         ██    ██   ██ ██    ██ ██   ██ ██              #
@@ -191,8 +186,6 @@ func fix_font_height_for_code_editor(top : int, bottom : int) -> void:
 # ██      ██   ██ ██    ██    ██    ██ ██   ██       ██      ██    ██ ██    ██ #
 # ███████ ██████  ██    ██     ██████  ██   ██       ███████  ██████   ██████  #
 func                        ________EDITOR_LOG_______              ()->void:pass
-@export_group("EditorLog", "editorlog_")
-
 @export_custom( PROPERTY_HINT_NONE, "",
 	PROPERTY_USAGE_EDITOR_BASIC_SETTING | PROPERTY_USAGE_GROUP)
 var editorlog_ligatures : bool :
@@ -228,7 +221,6 @@ func editorlog_rotate_toggle( toggled_on : bool ) -> void:
 		if sideways_effect in output_rtl.custom_effects:
 			output_rtl.custom_effects.erase(sideways_effect)
 
-
 # ██████  ███████ ███████        ██  ██ ██      ██ ███    ██ ██   ██ ███████   #
 # ██   ██ ██      ██      ██    ██  ██  ██      ██ ████   ██ ██  ██  ██        #
 # ██████  █████   ███████      ██  ██   ██      ██ ██ ██  ██ █████   ███████   #
@@ -236,7 +228,7 @@ func editorlog_rotate_toggle( toggled_on : bool ) -> void:
 # ██   ██ ███████ ███████    ██  ██     ███████ ██ ██   ████ ██   ██ ███████   #
 func                        ________RES_LINKS________              ()->void:pass
 
-@export_custom( PROPERTY_HINT_NONE, "",
+@export_custom( PROPERTY_HINT_NONE, "editorlog",
 	PROPERTY_USAGE_EDITOR_BASIC_SETTING | PROPERTY_USAGE_GROUP)
 var editorlog_url_links : bool :
 	set = editorlog_url_links_set

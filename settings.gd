@@ -38,16 +38,28 @@ var _target : EditorPlugin
 func                        __________EVENTS_________              ()->void:pass
 
 func _on_editor_settings_changed() -> void:
-	print("Changes Settings:", editor_settings.get_changed_settings())
+
 	for setting_name in editor_settings.get_changed_settings():
 		if not setting_name.begins_with(_prefix): continue
-		var prop_name : StringName = setting_name.get_file()
+		if setting_name.begins_with(_prefix.path_join(&"built-in")): continue
 		var prop_val : Variant = editor_settings.get(setting_name)
-		_target.set( prop_name, prop_val )
+		var prop_name : StringName = setting_name.trim_prefix(_prefix+ "/").replace('/', '_')
+		# try to set the target object property value.
+		if prop_name in _target.get_property_list().reduce(
+			func( prop_names : Array, prop_dict : Dictionary ) -> Array:
+				prop_names.append(prop_dict.name); return prop_names, [] ):
+					_target.set( prop_name, prop_val )
+		else:
+			printerr("property(%s) invalid for target(%s)" % [
+				prop_name, _target.name])
 
 
 func _on_target_tree_exiting() -> void:
 	editor_settings.settings_changed.disconnect( _on_editor_settings_changed )
+	var erase_when_exit := _prefix.path_join('erase_when_exit')
+	if editor_settings.has_setting( erase_when_exit ) \
+		and editor_settings.get_setting( erase_when_exit ):
+			erase_settings_in_prefix()
 
 
 #      ██████  ██    ██ ███████ ██████  ██████  ██ ██████  ███████ ███████     #
@@ -69,6 +81,20 @@ func _init( target : EditorPlugin, prefix : String = "" )-> void:
 	editor_settings.settings_changed.connect( _on_editor_settings_changed )
 	@warning_ignore_restore('return_value_discarded')
 
+
+	add_properties_to_settings()
+	add_builtin_settings()
+
+
+#         ███    ███ ███████ ████████ ██   ██  ██████  ██████  ███████         #
+#         ████  ████ ██         ██    ██   ██ ██    ██ ██   ██ ██              #
+#         ██ ████ ██ █████      ██    ███████ ██    ██ ██   ██ ███████         #
+#         ██  ██  ██ ██         ██    ██   ██ ██    ██ ██   ██      ██         #
+#         ██      ██ ███████    ██    ██   ██  ██████  ██████  ███████         #
+func                        _________METHODS_________              ()->void:pass
+
+## Add all the properties as settings
+func add_properties_to_settings() -> void:
 	for property : Dictionary in _target.get_property_list():
 		if not (property.usage & PROPERTY_USAGE_EDITOR_BASIC_SETTING): continue
 
@@ -95,6 +121,7 @@ func _init( target : EditorPlugin, prefix : String = "" )-> void:
 		# update the settings.
 		if not editor_settings.has_setting(setting_name):
 			editor_settings.set_setting( setting_name, initial_value )
+			editor_settings.set_initial_value(setting_name, initial_value, true)
 			#editor_settings.mark_setting_changed(setting_info.name)
 		# Incase our plugin has changed, update the setting
 		editor_settings.set_initial_value(setting_name, initial_value, false)
@@ -103,17 +130,51 @@ func _init( target : EditorPlugin, prefix : String = "" )-> void:
 		var prop_val : Variant = editor_settings.get(setting_name)
 		_target.set( prop_name, prop_val )
 
-#         ███    ███ ███████ ████████ ██   ██  ██████  ██████  ███████         #
-#         ████  ████ ██         ██    ██   ██ ██    ██ ██   ██ ██              #
-#         ██ ████ ██ █████      ██    ███████ ██    ██ ██   ██ ███████         #
-#         ██  ██  ██ ██         ██    ██   ██ ██    ██ ██   ██      ██         #
-#         ██      ██ ███████    ██    ██   ██  ██████  ██████  ███████         #
-func                        _________METHODS_________              ()->void:pass
+
+## Add some boilerplate settings.
+func add_builtin_settings() -> void:
+	# Add tool button to open object in the inspector.
+	var open_inspector : Dictionary = {
+		&'name': _prefix.path_join(&"built-in").path_join("inspect"),
+		&'type': TYPE_CALLABLE,
+		&'hint': PROPERTY_HINT_TOOL_BUTTON,
+		&'hint_string': "Open Settings Object In Inspector"
+	}
+	var inspector_name : String = open_inspector.name
+	editor_settings.set_setting( inspector_name, EditorInterface.inspect_object.bind(_target) )
+	editor_settings.add_property_info(open_inspector)
+
+	var rebuild : Dictionary = {
+		&'name': _prefix.path_join(&"built-in").path_join("rebuild"),
+		&'type': TYPE_CALLABLE,
+		&'hint': PROPERTY_HINT_TOOL_BUTTON,
+		&'hint_string': "Rebuild Settings"
+	}
+	var rebuild_name : String = rebuild.name
+	editor_settings.set_setting( rebuild_name, rebuild_settings )
+	editor_settings.add_property_info(rebuild)
+
+	var erase_when_exit : Dictionary = {
+		&'name': _prefix.path_join(&"built-in").path_join(&"erase_when_exit"),
+		&'type': TYPE_BOOL,
+		&'hint': PROPERTY_HINT_NONE,
+		&'hint_string': ""
+	}
+	var erase_name : String = erase_when_exit.name
+	editor_settings.set_setting( erase_name, false )
+	editor_settings.add_property_info(erase_when_exit)
+
 
 ## Erase settings with _prefix
-func scrub() -> void:
+func erase_settings_in_prefix() -> void:
 	print("Scrubbing '%s/*' from editor configuration." % _prefix )
 	for property in editor_settings.get_property_list():
 		var setting_name : String = property.get(&'name')
 		if setting_name.begins_with(_prefix):
 			editor_settings.erase(setting_name)
+
+
+func rebuild_settings() -> void:
+	erase_settings_in_prefix()
+	add_properties_to_settings()
+	add_builtin_settings()
