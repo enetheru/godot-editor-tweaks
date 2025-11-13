@@ -33,8 +33,10 @@ static var delay_amount : int = 100
 
 # Stack Flow
 static var prev_stack_size : int = 32
-static var stack : Array[Dictionary]
 static var prev_stack : Array[Dictionary]
+
+static func save_stack( used_stack : Array[Dictionary] ) -> void:
+	prev_stack = used_stack
 
 # Filter
 static var ignore_filter : Array[String] = []
@@ -119,12 +121,32 @@ static func disable() -> void:
 static func enable() -> void:
 	disabled = false
 
+# FIXME stack usage is junk, calling through this function will cause
+# printy to add another layer on error which is not necessary.
+static func pfunc(object : Object = null) -> void:
+	var stack : Array[Dictionary] = get_stack()
+	stack.pop_front() # ditch this function's entry.
+	var call_site : Dictionary = stack.front()
+	var call_from : Dictionary = stack[1] if stack.size() > 1 else stack.front()
+	# A stack frame looks like this: {
+	#	function:bar,
+	#	line:12,
+	#	source:res://script.gd
+	#}
+	var parts : Array[String] = [
+		"[url='{source}:{line}']".format(call_from),
+		"{function}()".format(call_site),
+		"[/url]"
+	]
+	printy("".join(parts), [], object, "", stack)
+
 
 static func printy(
 			content : Variant,
 			args_in : Variant = null,
 			object : Object = null,
-			indent : String = ""
+			indent : String = "",
+			stack : Array[Dictionary] = []
 			) -> void:
 	# Only print if trace is specified in the debug features
 	#if not OS.has_feature('trace'): return
@@ -160,9 +182,13 @@ static func printy(
 
 	var newline : bool = false
 
-	prev_stack = stack
-	stack = get_stack()
-	stack.pop_front() # Ditch the EneLog.printy entry from the top
+	if stack.is_empty():
+		stack = get_stack()
+		stack.pop_front() # Ditch the EneLog.printy entry from the top
+
+	# Create a scope guard to save the stack when we are done.
+	var _save_stack := Enetheru.async.ScopeGuard.new(save_stack.bind(stack))
+
 	var stack_size : int = stack.size()
 
 	# Network ID
@@ -181,7 +207,8 @@ static func printy(
 		var sender_id : int = -1
 		if is_instance_valid(object) and object is Node:
 			var node : Node = object
-			sender_id = node.multiplayer.get_remote_sender_id()
+			if node.is_inside_tree():
+				sender_id = node.multiplayer.get_remote_sender_id()
 		if sender_id > 0:
 			rpc_string = '[color=cornflower_blue]󰏴 %s[/color]' % Enetheru.string.id_str(sender_id)
 	else:

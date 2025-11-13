@@ -38,7 +38,7 @@ func _run() -> void:
 	#load( 'res://addons/enhancements/plugin.gd' )
 	#EditorInterface.edit_resource(load('res://addons/enhancements/plugin.gd'))
 
-	#print_icons( output )
+	print_icons( output )
 
 
 func erase_settings() -> void:
