@@ -383,6 +383,8 @@ static func dump_icons() -> void:
 #          ██████  ██████  ███████  ██████   ██████  ██   ██ ███████           #
 func                        _________COLOURS_________              ()->void:pass
 
+# TODO dump named colours too.
+
 #@export_tool_button("Dump Icons to EditorLog")
 @export_custom( PROPERTY_HINT_TOOL_BUTTON, "Dump Editor Colours",
 	PROPERTY_USAGE_EDITOR_BASIC_SETTING

@@ -88,6 +88,8 @@ var match_next_b : Button
 #var search_options_b : Button
 var search_hide_b : Button
 
+var debounce_timer : Timer
+
 
 # │  ___     _
 # │ / __|___| |___ _  _ _ _ ___
@@ -95,12 +97,13 @@ var search_hide_b : Button
 # │ \___\___/_\___/\_,_|_| /__/
 # ╰──────────────────────────────
 
-var paragraph_color := Color(1,1,0,0.2)
-var current_paragraph_color := Color.YELLOW
-var line_color := Color(1,1,0,0.2)
+var paragraph_color := Color(Color.YELLOW, 0.3)
+var current_paragraph_color := Color(Color.YELLOW, 0.3)
+var line_color := Color(Color.YELLOW, 0.3)
 var current_line_color := Color.YELLOW
-var word_color : Color
-var current_word_color : Color
+var word_color := Color(Color.YELLOW, 0.3)
+var current_word_color := Color(Color.YELLOW, 0.3)
+
 
 # │ ___     _                     _
 # │|_ _|_ _| |_ ___ _ _ _ _  __ _| |
@@ -119,18 +122,28 @@ var _rtl_visible_content_rect : Rect2
 var pattern_history : Array
 var search_pattern : String
 
-# paragraph_num : [pairs of match begin and end]
-var match_results : Dictionary[int,Array]
+# paragraph_num : [Vector2i pairs of absolute character start and end indexes]
+var match_results : Dictionary
 var match_indices  : Array[int]
 
 var current_match_idx : int = 1
 var at_first_match : bool = false
 var at_last_match : bool = false
 
+var debounce_delay : float = 1
+
+# Cache
+var _rtl_content_margin := Vector2(8,8) # TODO fetch this from the theme
+var _rtl_font : Font
+var _rtl_font_size : int = 16
+
+
 # TODO delete the debug stuff.
 var _debug : bool = true
 var debug_info : Dictionary
 var matching_paragraphs : Dictionary
+var _debug_font : FontVariation
+var _debug_font_size : int
 
 #             ███████ ██    ██ ███████ ███    ██ ████████ ███████              #
 #             ██      ██    ██ ██      ████   ██    ██    ██                   #
@@ -167,7 +180,8 @@ func _on_editorlog_rtl_draw() -> void:
 
 	_rtl_visible_content_rect = _rtl.get_visible_content_rect()
 	draw_search()
-	if _debug: draw_debug()
+	if pattern_regex_b.button_pressed:
+		if _debug: draw_debug()
 
 
 func _on_search_toggled( toggled_on : bool ) -> void:
@@ -186,16 +200,11 @@ func _on_search_toggled( toggled_on : bool ) -> void:
 
 
 func _on_pattern_changed( new_pattern : String ) -> void:
-	if not _rtl.is_finished(): await _rtl.finished
-	EneLog.pfunc(self)
+	EneLog.printy("_on_pattern_changed( %s )", [new_pattern], self)
 	search_pattern = new_pattern
-	if new_pattern.is_empty():
-		clear_matches()
-		update_search_ui()
-		return
-
-	@warning_ignore('return_value_discarded')
-	cache_is_updated() # we changed the text, so cache just needs updating.
+	if not debounce_timer.is_stopped(): return
+	debounce_timer.start(debounce_delay)
+	await debounce_timer.timeout
 	do_search()
 
 
@@ -205,7 +214,6 @@ func _on_pattern_history_pressed() -> void:
 
 func _on_pattern_insert_pressed() -> void:
 	EneLog.pfunc(self)
-	find_extents()
 
 
 func _on_pattern_case_pressed() -> void:
@@ -218,6 +226,8 @@ func _on_pattern_word_pressed() -> void:
 
 func _on_pattern_regex_pressed() -> void:
 	EneLog.pfunc(self)
+	EditorInterface.inspect_object(_rtl)
+
 
 
 func _on_match_prev_pressed() -> void:
@@ -350,6 +360,14 @@ func find_buildtin_editorlog_controls( logref : BoxContainer ) -> void:
 			1 when child is Button:
 				_el_filter = child
 
+	_rtl_font = _rtl.get_theme_default_font()
+	_rtl_font_size = _rtl.get_theme_default_font_size()
+
+
+	_debug_font = FontVariation.new()
+	_debug_font_size = _rtl_font_size
+	_debug_font.base_font = _rtl_font
+
 
 func enable_search() -> void:
 	EneLog.pfunc(self)
@@ -375,8 +393,13 @@ func disable_search() -> void:
 
 func do_search() -> void:
 	EneLog.pfunc(self)
+	if not _rtl.is_finished(): await _rtl.finished
+	if search_pattern.is_empty():
+		clear_matches()
+		update_search_ui()
+		return
+
 	await cache_is_updated()
-	clear_matches()
 
 	var search_info : Dictionary = {
 		&"p_num":0,
@@ -384,30 +407,19 @@ func do_search() -> void:
 		&"pattern":search_pattern
 	}
 
-	_rtl_p_cache.reduce( search_paragraphs.bind(search_info), match_results )
-	EneLog.printy("H1 line_cache.size: %s", [_rtl_p_cache.size()])
+	clear_matches()
+	# TODO change the search function depending on the options.
+	match_results = _rtl_p_cache.reduce( basic_search.bind(search_info), {} )
+
+	EneLog.printy("line_cache.size: %s", [_rtl_p_cache.size()])
 	if not _rtl_p_cache.is_empty():
-		EneLog.printy("H1 first line: %s", _rtl_p_cache[0])
+		EneLog.printy("first line: %s", _rtl_p_cache[0])
 	if not match_results.is_empty():
 		match_indices .assign( match_results.keys() )
 		if current_match_idx > match_indices .size():
 			current_match_idx = match_indices .size()
 
 	update_search_ui()
-
-
-func search_paragraphs(
-			results : Dictionary,
-			paragraph : String,
-			search_info : Dictionary ) -> Dictionary:
-	var pattern : String = search_info.pattern
-	if pattern in paragraph:
-		# TODO capture the location of the word within the paragraph
-		# TODO implement word, case, regex features
-		results[search_info.p_num] = []
-		matching_paragraphs[search_info.p_num] = paragraph
-	search_info.p_num += 1
-	return results
 
 
 func cache_is_updated() -> bool:
@@ -422,7 +434,11 @@ func cache_is_updated() -> bool:
 		# something more accurate.
 		# NOTE: if I perform any text manipulation here,
 		# it will cause a race condition and crash godot.
+		# TODO investigate whether caching is even needed, the
+		# strings might be available under the hood in a format
+		# that is suitable already.
 		_rtl_p_cache = _rtl.get_parsed_text().split('\n', true)
+		# TODO search within selection _rtl.get_selected_text()
 		_rtl_total_char_count = total_char_count
 		return true
 	return false
@@ -441,20 +457,6 @@ func clear_matches() -> void:
 	at_first_match = false
 	at_last_match = false
 
-func find_extents() -> Dictionary:
-	EneLog.pfunc(self)
-	var c_size : int = _rtl.get_total_character_count()
-	#_rtl.get_visible_line_count()
-	#_rtl.get_visible_paragraph_count()
-	#_rtl.get_total_character_count()
-	#_rtl.get_character_line(0)
-	#_rtl.get_character_paragraph(0)
-	#range(_rtl.get_total_character_count()).bsearch_custom()
-	if not c_size: return {}
-	debug_info['smol'] = find_smallest(c_size, is_character_visible)
-	return {
-		#"char_start": find_smallest(c_size, is_character_visible)
-	}
 
 # function assumes cached variables for draw are upto date.
 func is_character_visible( c_num : int ) -> int:
@@ -514,6 +516,34 @@ func find_smallest(
 
 	push_error("No suitable index found within margin.")
 	return -1
+#               ███████ ███████  █████  ██████   ██████ ██   ██                #
+#               ██      ██      ██   ██ ██   ██ ██      ██   ██                #
+#               ███████ █████   ███████ ██████  ██      ███████                #
+#                    ██ ██      ██   ██ ██   ██ ██      ██   ██                #
+#               ███████ ███████ ██   ██ ██   ██  ██████ ██   ██                #
+func                        __________SEARCH_________              ()->void:pass
+
+func basic_search(
+			results : Dictionary,
+			paragraph : String,
+			search_info : Dictionary ) -> Dictionary:
+	var pattern : String = search_info.pattern
+	if pattern in paragraph:
+		# TODO capture the location of the word within the paragraph
+		# TODO implement word, case, regex features
+		var result_array := Array()
+		var from : int = 0
+		while from < paragraph.length():
+			var match_start : int = paragraph.findn(pattern, from)
+			if match_start < 0: break
+			result_array.append(Vector2i(match_start, match_start + pattern.length()))
+			from += match_start + pattern.length() + 1
+
+		results[search_info.p_num] = result_array
+	search_info.p_num += 1
+	return results
+
+
 
 #                ██████ ██████  ███████  █████  ████████ ███████               #
 #               ██      ██   ██ ██      ██   ██    ██    ██                    #
@@ -571,6 +601,10 @@ func create_search_control() -> void:
 	search_pattern_le.size_flags_horizontal = _el_filter_line.size_flags_horizontal
 	search_pattern_le.accessibility_name = "Search Messages"
 
+	debounce_timer = Timer.new()
+	debounce_timer.one_shot = true
+	debounce_timer.autostart = false
+
 	# Add special characters to the search line
 	pattern_insert_b = Button.new()
 	pattern_insert_b.text = ""
@@ -617,6 +651,7 @@ func create_search_control() -> void:
 
 	search_hbox.add_child(search_history_b)
 	search_hbox.add_child(search_pattern_le)
+	search_pattern_le.add_child(debounce_timer)
 	search_hbox.add_child(pattern_insert_b)
 	search_hbox.add_child(pattern_case_b)
 	search_hbox.add_child(pattern_word_b)
@@ -652,6 +687,115 @@ func create_search_control() -> void:
 #                      ██████  ██   ██ ██   ██  ███ ███                        #
 func                        __________DRAW___________              ()->void:pass
 
+func draw_highlight_word(
+			word_range : Vector2i,
+			_color : Color,
+			_filled : bool = true,
+			_width : int = -1 ) -> void:
+	var p_num : int = _rtl.get_character_paragraph(word_range.x)
+	var l_num : int = _rtl.get_character_line(word_range.x)
+	var l_range : Vector2i = _rtl.get_line_range(l_num)
+	var l_rect : Rect2= get_line_rect(l_num)
+
+	var line_text : String = _rtl_p_cache[p_num]
+
+	# make word range relative to the paragraph.
+	word_range.x -= l_range.x
+	word_range.y -= l_range.x
+
+	var pre_text : String = line_text.substr(0,word_range.x)
+
+	var w_text : String = line_text.substr(word_range.x, word_range.y - word_range.x)
+
+	var pre_size : Vector2 = _rtl_font.get_multiline_string_size(pre_text)
+	var w_size : Vector2 = _rtl_font.get_multiline_string_size(w_text)
+
+	var w_rect := Rect2(_rtl_content_margin, w_size)
+	w_rect.position += l_rect.position
+	w_rect.position.x += pre_size.x
+	w_rect.position.y -= _rtl_scroll_value
+
+	_rtl.draw_rect(w_rect, word_color)
+
+
+func draw_highlight_line(
+			l_num : int,
+			color : Color,
+			filled : bool = true,
+			width : int = -1
+			) -> void:
+	var l_rect : Rect2 = get_line_rect(l_num)
+	l_rect.position += _rtl_content_margin
+	l_rect.position.y -= _rtl_scroll_value
+
+	if l_rect.intersects(_rtl_visible_content_rect):
+		_rtl.draw_rect(l_rect, color, filled, width )
+
+
+func draw_highlight_paragraph(
+			p_num : int,
+			color : Color,
+			filled : bool = true,
+			width : int = -1
+			) -> void:
+	var p_range : Vector2i = get_paragraph_range(p_num)
+	var l_range := Vector2i(
+		_rtl.get_character_line(p_range.x),
+		_rtl.get_character_line(p_range.y))
+
+	for l_num in range(l_range.x, l_range.y):
+		draw_highlight_line(l_num, color, filled, width)
+
+	for word_range : Vector2i in match_results[p_num]:
+		var abs_word : Vector2i = word_range + Vector2i(p_range.x, p_range.x)
+		draw_highlight_word( abs_word , word_color )
+
+
+# TODO: highlight word segments
+# NOTE:  might it be more efficient to figure out the minimum line, and maximum line that is in view?
+func draw_search() -> void:
+	if match_indices .is_empty(): return
+	if not _rtl.is_finished(): return
+
+	var current_paragraph_idx : int = match_indices [current_match_idx-1]
+	draw_highlight_paragraph( current_paragraph_idx, current_paragraph_color, false )
+
+	for p_num : int in match_indices :
+		draw_highlight_paragraph( p_num, paragraph_color, true )
+
+
+
+#                           ██████  ████████ ██                                #
+#                           ██   ██    ██    ██                                #
+#                           ██████     ██    ██                                #
+#                           ██   ██    ██    ██                                #
+#                           ██   ██    ██    ███████                           #
+func                        ___________RTL___________              ()->void:pass
+# There is no builtin method to get the character index for the start of the
+# paragraph.
+func get_paragraph_range( p_num : int ) -> Vector2i:
+	assert( p_num >= 0)
+	assert( p_num < _rtl.get_paragraph_count())
+
+	var p_range := Vector2i(-1,-1)
+	for line_num : int in _rtl.get_line_count():
+		var line_range : Vector2i = _rtl.get_line_range(line_num)
+
+		# Match the start first.
+		if p_range.x == -1:
+			var char_p : int = _rtl.get_character_paragraph(line_range.x)
+			if char_p == p_num:
+				p_range.x = line_range.x
+
+		# Then match the end.
+		if p_range.x != -1:
+			var char_p : int = _rtl.get_character_paragraph(line_range.y-1)
+			if char_p != p_num: break
+			p_range.y = line_range.y
+
+	return p_range
+
+
 func get_line_rect( l_num : int ) -> Rect2:
 	if l_num >= _rtl.get_line_count(): return Rect2()
 	var l_offset : float = _rtl.get_line_offset(l_num)
@@ -659,104 +803,6 @@ func get_line_rect( l_num : int ) -> Rect2:
 		Vector2(0, l_offset),
 		Vector2(_rtl.get_line_width(l_num), _rtl.get_line_height(l_num))
 	)
-
-func draw_highlight_character(
-			c_num : int,
-			color : Color,
-			filled : bool = true,
-			width : int = -1
-			) -> void:
-	return
-
-func draw_highlight_paragraph(
-			c_num : int,
-			color : Color,
-			filled : bool = true,
-			width : int = -1
-			) -> void:
-	var c_size : int = _rtl.get_total_character_count()
-	debug_info["c_max"] = c_size
-
-	#var l_count : int = _rtl.get_line_count()
-
-	var p_num : int = _rtl.get_character_paragraph(c_num)
-	var l_num : int = _rtl.get_character_line(c_num)
-	var p_rect : Rect2 = get_line_rect(l_num)
-	var f_rect : Rect2 = p_rect
-
-
-	debug_info["line_num"] = l_num
-	debug_info["p_num"] = p_num
-	debug_info["p_rect"] = p_rect
-
-	# Iterate over the lines within the paragraph to get the final rect.
-	while true:
-		var l_range : Vector2i = _rtl.get_line_range(l_num)
-		debug_info[str(l_num) + "l_range"] = l_range
-		c_num = l_range.y
-		debug_info["c_num"] = c_num
-		if c_num >= c_size or _rtl.get_character_paragraph(c_num) != p_num: break
-
-		l_num = _rtl.get_character_line(c_num)
-		var t_rect := get_line_rect(l_num)
-		debug_info[str(l_num) + "l_rect"] = t_rect
-		f_rect = f_rect.merge(t_rect)
-
-	var c_pos : Vector2 = _rtl_visible_content_rect.position
-	var c_scroll : float = _rtl_scroll_value
-	f_rect.position += Vector2(c_pos.x, c_pos.x - c_scroll)
-
-	debug_info["c_rect"] = _rtl_visible_content_rect
-	debug_info["scroll_pos"] = c_scroll
-	debug_info["final_rect"] = f_rect
-
-	if f_rect.intersects(_rtl_visible_content_rect):
-		_rtl.draw_rect(f_rect, color, filled, width )
-
-
-# TODO: make semitransparent boxes
-# TODO: Highlight current line
-# TODO: highlight word segments
-# NOTE:  might it be more efficient to figure out the minimum line, and maximum line that is in view?
-func draw_search() -> void:
-	if match_indices .is_empty(): return
-	if not _rtl.is_finished(): return
-
-	# TODO: Delete me after testing.
-	paragraph_color = Color(0xFFFF0F1F)
-	current_paragraph_color = Color(0xFFFF00FF)
-	word_color = Color(0x4F0FFF1F)
-	current_word_color = Color(0x4F00FFFF)
-
-	matching_paragraphs.clear()
-	for idx in match_indices :
-		matching_paragraphs[idx] = _rtl_p_cache[idx]
-
-	#var current_paragraph_idx : int = match_indices [current_match_idx-1]
-	# I need to change this to current character index.
-	#draw_highlight_paragraph( current_paragraph_idx, current_paragraph_color, false )
-
-	for p_num : int in match_indices :
-		# FIXME, this is broken.
-		# The line size is the area of the text line.
-		var p_size := Vector2(
-			_rtl.get_line_width(p_num),
-			_rtl.get_line_height(p_num))
-
-		# The line offset is the distance from the top of the document
-		var p_offset : float = _rtl.get_paragraph_offset(p_num)
-
-		var highlight_rect := Rect2(
-			Vector2(
-				_rtl_visible_content_rect.position.x,
-				p_offset - _rtl_scroll_value + p_size.y/2),
-			p_size)
-
-		if highlight_rect.intersects(_rtl_visible_content_rect):
-			# TODO figure out how to make it a semi transparent filled rectangle.
-			_rtl.draw_rect(highlight_rect, paragraph_color)
-
-
 
 #                  ██████  ███████ ██████  ██    ██  ██████                    #
 #                  ██   ██ ██      ██   ██ ██    ██ ██                         #
@@ -767,10 +813,6 @@ func                        __________DEBUG__________              ()->void:pass
 
 func draw_debug() -> void:
 	draw_debug2()
-	var c_num: int = debug_info.get('smol', 0)
-
-	if c_num < _rtl.get_total_character_count():
-		draw_highlight_character(c_num, Color.DEEP_PINK)
 	draw_debug_info()
 
 
@@ -780,10 +822,6 @@ func draw_debug_info() -> void:
 	font.base_font = ThemeDB.fallback_font
 	#font.variation_embolden = 1.0
 	var font_size : int = 20
-
-	var bg_color := Color.DARK_SLATE_GRAY
-	var fg_color := Color.BEIGE
-	var ol_color := Color.BLACK
 
 	var debug_position := Vector2(_rtl.size.x / 3,font.get_height(font_size))
 
@@ -797,30 +835,16 @@ func draw_debug_info() -> void:
 
 	debug_parts.append_array([
 		"pattern = " + search_pattern,
-		"indexes = %s" % [match_indices ],
-		#"results = " + JSON.stringify(match_results, '  ', false),
+		"results = " + JSON.stringify(match_results, '  ', false),
 	])
-	for p in mini(_rtl_p_cache.size(), 4):
-		debug_parts.append(str(p) + "|" + _rtl_p_cache[p])
 
-	#if not matching_paragraphs.is_empty():
-		#debug_parts.append("matching_paragraphs = " + JSON.stringify(matching_paragraphs., ' ', false))
+	debug_position = _editorlog.size / 2
+	debug_position.y = 0
+
 
 	# merge the parts into one string.
 	var debug_text : String = "\n".join(debug_parts)
-
-	var bg_size : Vector2 = font.get_multiline_string_size(
-		debug_text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, -1)
-
-	_rtl.draw_rect(Rect2(debug_position, bg_size), bg_color)
-
-	_rtl.draw_multiline_string_outline(
-		font, debug_position, debug_text,
-		HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, -1, 3, ol_color)
-
-	_rtl.draw_multiline_string(
-		font, debug_position, debug_text,
-		HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, -1, fg_color)
+	draw_debug_text(debug_position, debug_text)
 
 
 func draw_debug2() -> void:
@@ -875,3 +899,34 @@ func draw_debug2() -> void:
 		if l_rect.intersects(c_rect):
 			_rtl.draw_rect(l_rect, l_color)
 			_rtl.draw_rect(l_rect, l_color_ol, false)
+
+
+func draw_debug_text( position : Vector2, msg : String )-> void:
+	#font.variation_embolden = 1.0
+	var ascent : float = _debug_font.get_ascent(_debug_font_size)
+	var descent : float = _debug_font.get_descent(_debug_font_size)
+	var margin := Vector2(descent, 0) + Vector2.ONE * 2
+
+	position += _rtl_content_margin
+
+	var bg_color := Color.DARK_SLATE_GRAY
+	var fg_color := Color.BEIGE
+	var ol_color := Color.BLACK
+
+	var bg_size : Vector2 = _debug_font.get_multiline_string_size(
+		msg, HORIZONTAL_ALIGNMENT_LEFT, -1, _debug_font_size, -1)
+	bg_size += margin * 2
+
+	_rtl.draw_rect(Rect2(position, bg_size), bg_color)
+	_rtl.draw_rect(Rect2(position, bg_size), bg_color.darkened(0.2), false, 2)
+
+	position += margin
+	position.y += ascent
+
+	_rtl.draw_multiline_string_outline(
+		_debug_font, position, msg,
+		HORIZONTAL_ALIGNMENT_LEFT, -1, _debug_font_size, -1, 3, ol_color)
+
+	_rtl.draw_multiline_string(
+		_debug_font, position, msg,
+		HORIZONTAL_ALIGNMENT_LEFT, -1, _debug_font_size, -1, fg_color)
