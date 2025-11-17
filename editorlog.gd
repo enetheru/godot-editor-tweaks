@@ -18,16 +18,30 @@ static func toggle_search_bar( logref : BoxContainer, toggled_on : bool ) -> voi
 			editor_log_helper = null
 
 
+# │ _____            _
+# │|_   _| _ __ _ __(_)_ _  __ _
+# │  | || '_/ _` / _| | ' \/ _` |
+# │  |_||_| \__,_\__|_|_||_\__, |
+# ╰────────────────────────|___/───
+var trace_enabled : bool = false
+
+func trace() -> void:
+	if not trace_enabled : return
+	var stack := get_stack(); stack.pop_front()
+	EneLog.pfunc( self, stack )
+
+func trace_detail(content : Variant) -> void:
+	if not trace_enabled : return
+	var stack := get_stack(); stack.pop_front()
+	EneLog.printy(content, null, self, "", stack)
+
+
 # ██████  ██████   ██████  ██████  ███████ ██████  ████████ ██ ███████ ███████ #
 # ██   ██ ██   ██ ██    ██ ██   ██ ██      ██   ██    ██    ██ ██      ██      #
 # ██████  ██████  ██    ██ ██████  █████   ██████     ██    ██ █████   ███████ #
 # ██      ██   ██ ██    ██ ██      ██      ██   ██    ██    ██ ██           ██ #
 # ██      ██   ██  ██████  ██      ███████ ██   ██    ██    ██ ███████ ███████ #
 func                        ________PROPERTIES_______              ()->void:pass
-
-# Editor Theme.
-var editor_theme : Theme :
-	get(): return EditorInterface.get_editor_theme()
 
 
 # │ ___    _ _ _           _
@@ -60,6 +74,9 @@ var _el_error : Button
 var _el_warning : Button
 var _el_editor : Button
 
+# Editor Theme.
+var editor_theme : Theme :
+	get(): return EditorInterface.get_editor_theme()
 
 # │ ___                  _      _    _
 # │/ __| ___ __ _ _ _ __| |_   | |  (_)_ _  ___
@@ -130,7 +147,7 @@ var current_match_idx : int = 1
 var at_first_match : bool = false
 var at_last_match : bool = false
 
-var debounce_delay : float = 1
+var debounce_delay : float = 0.7
 
 # Cache
 var _rtl_content_margin := Vector2(8,8) # TODO fetch this from the theme
@@ -162,7 +179,7 @@ func _on_vsb_changed( _value : float ) -> void:
 	if _vsb_debounce: return
 	_vsb_debounce = true
 	_rtl_vsb.value_changed.disconnect(_on_vsb_changed)
-	EneLog.printy("_on_vsb_changed(%s)", [_value], self)
+	trace_detail("_on_vsb_changed(%s)"% [_value])
 	await EditorInterface.get_base_control().get_tree().create_timer(1).timeout
 	@warning_ignore('return_value_discarded')
 	_rtl_vsb.value_changed.connect(_on_vsb_changed)
@@ -200,7 +217,7 @@ func _on_search_toggled( toggled_on : bool ) -> void:
 
 
 func _on_pattern_changed( new_pattern : String ) -> void:
-	EneLog.printy("_on_pattern_changed( %s )", [new_pattern], self)
+	trace_detail("_on_pattern_changed( %s )"% [new_pattern])
 	search_pattern = new_pattern
 	if not debounce_timer.is_stopped(): return
 	debounce_timer.start(debounce_delay)
@@ -209,23 +226,23 @@ func _on_pattern_changed( new_pattern : String ) -> void:
 
 
 func _on_pattern_history_pressed() -> void:
-	EneLog.pfunc(self)
+	trace()
 
 
 func _on_pattern_insert_pressed() -> void:
-	EneLog.pfunc(self)
+	trace()
 
 
 func _on_pattern_case_pressed() -> void:
-	EneLog.pfunc(self)
+	trace()
 
 
 func _on_pattern_word_pressed() -> void:
-	EneLog.pfunc(self)
+	trace()
 
 
 func _on_pattern_regex_pressed() -> void:
-	EneLog.pfunc(self)
+	trace()
 	EditorInterface.inspect_object(_rtl)
 
 
@@ -240,7 +257,7 @@ func _on_match_prev_pressed() -> void:
 			current_match_idx = match_indices .size()
 			at_first_match = false
 		else:
-			EneLog.printy("TODO: pop for being at the top")
+			trace_detail("TODO: pop for being at the top")
 			at_first_match = true
 			return
 
@@ -259,7 +276,7 @@ func _on_match_next_pressed() -> void:
 			current_match_idx = 1
 			at_last_match = false
 		else:
-			EneLog.printy("TODO: pop for being at the bottom")
+			trace_detail("TODO: pop for being at the bottom")
 			at_last_match = true
 			return
 
@@ -276,7 +293,7 @@ func _on_match_next_pressed() -> void:
 func                        _________METHODS_________              ()->void:pass
 
 func find_buildtin_editorlog_controls( logref : BoxContainer ) -> void:
-	EneLog.pfunc(self)
+	trace()
 	# Main Control and children
 	_editorlog = logref
 	var interest : int = 0
@@ -370,13 +387,13 @@ func find_buildtin_editorlog_controls( logref : BoxContainer ) -> void:
 
 
 func enable_search() -> void:
-	EneLog.pfunc(self)
+	trace()
 	create_search_toggle()
 	create_search_control()
 
 
 func disable_search() -> void:
-	EneLog.pfunc(self)
+	trace()
 	for node : Node in [right_row3, right_sep3, search_hbox]:
 		if is_instance_valid(node):
 			node.queue_free()
@@ -392,7 +409,7 @@ func disable_search() -> void:
 
 
 func do_search() -> void:
-	EneLog.pfunc(self)
+	trace()
 	if not _rtl.is_finished(): await _rtl.finished
 	if search_pattern.is_empty():
 		clear_matches()
@@ -411,9 +428,9 @@ func do_search() -> void:
 	# TODO change the search function depending on the options.
 	match_results = _rtl_p_cache.reduce( basic_search.bind(search_info), {} )
 
-	EneLog.printy("line_cache.size: %s", [_rtl_p_cache.size()])
+	trace_detail("line_cache.size: %s" % [_rtl_p_cache.size()])
 	if not _rtl_p_cache.is_empty():
-		EneLog.printy("first line: %s", _rtl_p_cache[0])
+		trace_detail("first line: %s" % _rtl_p_cache[0])
 	if not match_results.is_empty():
 		match_indices .assign( match_results.keys() )
 		if current_match_idx > match_indices .size():
@@ -423,7 +440,7 @@ func do_search() -> void:
 
 
 func cache_is_updated() -> bool:
-	EneLog.pfunc(self)
+	trace()
 	if not _rtl.is_finished(): await _rtl.finished
 	# Cache the output split into paragraphs, if changed.
 	# NOTE: Could I use the clear action to invalidate the cache ?
@@ -460,29 +477,29 @@ func clear_matches() -> void:
 
 # function assumes cached variables for draw are upto date.
 func is_character_visible( c_num : int ) -> int:
-	EneLog.printy("is_character_visible( %d )", [c_num], self)
+	trace_detail("is_character_visible( %d )" % [c_num])
 	var l_num : int = _rtl.get_character_line(c_num)
-	EneLog.printy("char_line %s", [l_num])
+	trace_detail("char_line %s" % [l_num])
 	var l_range : Vector2i = _rtl.get_line_range(l_num)
-	EneLog.printy("line_range %s", [l_range])
+	trace_detail("line_range %s" % [l_range])
 
 	var c_rect : Rect2 = _rtl_visible_content_rect
-	EneLog.printy("visible_rect %s", [c_rect])
+	trace_detail("visible_rect %s" % [c_rect])
 	var c_pos : Vector2 = c_rect.position
 	var c_scroll : float = _rtl_scroll_value
 
 	var l_rect : Rect2 = get_line_rect(l_num)
 	l_rect.position += c_pos
 	l_rect.position.y -= c_scroll
-	EneLog.printy("line_rect %s", [l_rect])
+	trace_detail("line_rect %s" % [l_rect])
 
 	if l_rect.position.y == 0:
-		EneLog.printy("line_rect is at zero.")
+		trace_detail("line_rect is at zero.")
 		return 0
 	if l_rect.intersects(_rtl_visible_content_rect):
-		EneLog.printy("line_rect is visible")
+		trace_detail("line_rect is visible")
 		return l_range.x - c_num
-	EneLog.printy("line_rect is not visible")
+	trace_detail("line_rect is not visible")
 	return  c_num - l_range.x
 
 
@@ -492,18 +509,18 @@ func find_smallest(
 			guess_start: int = (size >> 1),
 			margin : int = 0
 			) -> int:
-	EneLog.printy("find_smallest( size: %d, func:%s, guess: %d, margin:%d)",
-			[size, check_func.get_method(), guess_start, margin ], self)
+	trace_detail("find_smallest( size: %d, func:%s, guess: %d, margin:%d)" % [
+			size, check_func.get_method(), guess_start, margin ])
 	assert( size > 0 )
 	var current : int = clamp(guess_start, 0, size - 1)
 	var largest : int = size
 	var smallest : int = 0
 
 	while current >= smallest and current < largest:
-		EneLog.printy("closing_window: (%s, %s)", [smallest, largest])
-		EneLog.printy("current: %d" % current)
+		trace_detail("closing_window: (%s, %s)" % [smallest, largest])
+		trace_detail("current: %d" % current)
 		var step : int = check_func.call(current)
-		EneLog.printy("step: %d" % step)
+		trace_detail("step: %d" % step)
 		if abs(step) <= margin: return current # within margin
 
 		# Shrink window based on sign (monotonic assumption)

@@ -123,9 +123,11 @@ static func enable() -> void:
 
 # FIXME stack usage is junk, calling through this function will cause
 # printy to add another layer on error which is not necessary.
-static func pfunc(object : Object = null) -> void:
-	var stack : Array[Dictionary] = get_stack()
-	stack.pop_front() # ditch this function's entry.
+static func pfunc(object : Object = null, stack : Array[Dictionary] = []) -> void:
+	if stack.is_empty():
+		stack = get_stack()
+		stack.pop_front() # Ditch the EneLog.pfunc entry from the top
+
 	var call_site : Dictionary = stack.front()
 	var call_from : Dictionary = stack[1] if stack.size() > 1 else stack.front()
 	# A stack frame looks like this: {
@@ -256,7 +258,7 @@ static func printy(
 			fd[&'flow'] = "└─" + "".rpad(distance-1, ' ') + "┐"
 		else:
 			fd[&'flow'] = "│"
-		fd[&'indent'] = "".lpad( ssize, '  ' )
+		fd[&'indent'] = "".lpad( ssize, '  ' )
 		#fd['proc'] += "%x" % ssize # DEBUG, useful to check stack size.
 	else:
 		fd[&'indent'] = indent

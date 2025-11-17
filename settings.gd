@@ -63,6 +63,23 @@
 #}
 #settings.add_property_info(property_info)
 
+# │ _____            _
+# │|_   _| _ __ _ __(_)_ _  __ _
+# │  | || '_/ _` / _| | ' \/ _` |
+# │  |_||_| \__,_\__|_|_||_\__, |
+# ╰────────────────────────|___/───
+var trace_enabled : bool = false
+
+func trace() -> void:
+	if not trace_enabled : return
+	var stack := get_stack(); stack.pop_front()
+	EneLog.pfunc( self, stack )
+
+func trace_detail(content : Variant) -> void:
+	if not trace_enabled : return
+	var stack := get_stack(); stack.pop_front()
+	EneLog.printy(content, null, self, "", stack)
+
 # ██████  ██████   ██████  ██████  ███████ ██████  ████████ ██ ███████ ███████ #
 # ██   ██ ██   ██ ██    ██ ██   ██ ██      ██   ██    ██    ██ ██      ██      #
 # ██████  ██████  ██    ██ ██████  █████   ██████     ██    ██ █████   ███████ #
@@ -90,14 +107,14 @@ var _dirty : bool = false
 func                        __________EVENTS_________              ()->void:pass
 
 func _on_editor_settings_changed() -> void:
-	EneLog.pfunc(self)
+	trace()
 	if _dirty: return
 	_dirty = true
 	update_target.call_deferred()
 
 
 func _on_target_ready() -> void:
-	EneLog.pfunc(self)
+	trace()
 	@warning_ignore('return_value_discarded')
 	editor_settings.settings_changed.connect( _on_editor_settings_changed )
 
@@ -106,14 +123,14 @@ func _on_target_ready() -> void:
 
 
 func _on_target_tree_exiting() -> void:
-	EneLog.pfunc(self)
+	trace()
 	editor_settings.settings_changed.disconnect( _on_editor_settings_changed )
 
 
 func _notification(what: int) -> void:
 	match what:
 		NOTIFICATION_PREDELETE:
-			EneLog.printy("NOTIFICATION_PREDELETE", [], self)
+			trace_detail("NOTIFICATION_PREDELETE")
 
 
 #      ██████  ██    ██ ███████ ██████  ██████  ██ ██████  ███████ ███████     #
@@ -126,7 +143,7 @@ func                        ________OVERRIDES________              ()->void:pass
 func _init( target : EditorPlugin,
 			prefix : String = "plugin/un-named"
 			)-> void:
-	EneLog.pfunc(self)
+	trace()
 	_prefix = prefix
 	_target = target
 

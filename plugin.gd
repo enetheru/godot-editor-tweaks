@@ -12,6 +12,23 @@ var settings_mgr : SettingsHelper
 
 const EditorLog = preload('uid://bqnxqo33qkevi')
 
+# │ _____            _
+# │|_   _| _ __ _ __(_)_ _  __ _
+# │  | || '_/ _` / _| | ' \/ _` |
+# │  |_||_| \__,_\__|_|_||_\__, |
+# ╰────────────────────────|___/───
+var trace_enabled : bool = false
+
+func trace() -> void:
+	if not trace_enabled : return
+	var stack := get_stack(); stack.pop_front()
+	EneLog.pfunc( self, stack )
+
+func trace_detail(content : Variant) -> void:
+	if not trace_enabled : return
+	var stack := get_stack(); stack.pop_front()
+	EneLog.printy(content, null, self, "", stack)
+
 
 # ██████  ██████   ██████  ██████  ███████ ██████  ████████ ██ ███████ ███████ #
 # ██   ██ ██   ██ ██    ██ ██   ██ ██      ██   ██    ██    ██ ██      ██      #
@@ -47,7 +64,7 @@ func _on_editorlog_link_clicked( meta : Variant ) -> void:
 	var url : String = meta
 	if not url: return
 	if not "://" in url:
-		EneLog.printy("url: ", url)
+		trace_detail("url: %s" % url)
 		return
 	if url.begins_with("res://"):
 		var parts : PackedStringArray = url.split(':')
@@ -63,7 +80,7 @@ func _on_editorlog_link_clicked( meta : Variant ) -> void:
 			_:
 				EditorInterface.edit_resource(load(url))
 	else:
-		EneLog.printy("url: ", url)
+		trace_detail("url: %s" % url)
 		@warning_ignore('return_value_discarded')
 		OS.shell_open( url )
 
@@ -76,7 +93,7 @@ func _on_editorlog_link_clicked( meta : Variant ) -> void:
 func                        ________OVERRIDES________              ()->void:pass
 
 func _init() -> void:
-	EneLog.pfunc(self)
+	trace()
 	icons_dump = Self.dump_icons
 	colours_dump = Self.dump_colours
 	settings_mgr = SettingsHelper.new(self, "plugin/enetheru-editor-tweaks")
@@ -128,12 +145,12 @@ var monospace_glyphs : bool = false :
 	set = monospace_glyphs_toggle
 
 func monospace_glyphs_toggle( toggled_on : bool ) -> void:
-	EneLog.pfunc(self)
+	trace()
 	if not is_instance_valid(output_rtl): return
 	monospace_glyphs = toggled_on
 	if toggled_on:
-		EneLog.printy("Enable Monospace Font Glyphs Fixes")
-		EneLog.printy("object instance ID: ", get_instance_id() )
+		trace_detail("Enable Monospace Font Glyphs Fixes")
+		trace_detail("object instance ID: %X" % get_instance_id() )
 		#var font : Font = code_edit_font.base_font
 		#print( code_edit_font.get_supported_chars())
 		#print(JSON.stringify(font.get_supported_feature_list(), "  ", false) )
@@ -170,7 +187,7 @@ func monospace_glyphs_toggle( toggled_on : bool ) -> void:
 
 
 	else:
-		EneLog.printy("Disable Monospace Font Glyphs Fixes")
+		trace_detail("Disable Monospace Font Glyphs Fixes")
 
 
 
@@ -184,7 +201,7 @@ func                            ______LINE_SPACING_______                    ()-
 	PROPERTY_USAGE_EDITOR_BASIC_SETTING | PROPERTY_USAGE_SUBGROUP)
 var codeedit_linespacing_toggle : bool = false :
 	set(toggle_on):
-		EneLog.pfunc(self)
+		trace()
 		codeedit_linespacing_toggle = toggle_on
 		if toggle_on:
 			fix_font_height_for_code_editor(codeedit_linespacing_above, codeedit_linespacing_below)
@@ -197,7 +214,7 @@ var codeedit_linespacing_toggle : bool = false :
 	PROPERTY_USAGE_EDITOR_BASIC_SETTING | PROPERTY_USAGE_SUBGROUP)
 var codeedit_linespacing_above : int = 0:
 	set(v):
-		EneLog.pfunc(self)
+		trace()
 		codeedit_linespacing_above = v
 		fix_font_height_for_code_editor(codeedit_linespacing_above, codeedit_linespacing_below)
 
@@ -206,7 +223,7 @@ var codeedit_linespacing_above : int = 0:
 	PROPERTY_USAGE_EDITOR_BASIC_SETTING | PROPERTY_USAGE_SUBGROUP)
 var codeedit_linespacing_below : int = 0:
 	set(v):
-		EneLog.pfunc(self)
+		trace()
 		codeedit_linespacing_below = v
 		fix_font_height_for_code_editor(codeedit_linespacing_above, codeedit_linespacing_below)
 
@@ -238,10 +255,10 @@ var editorlog_ligatures : bool = false :
 	set = editorlog_ligatures_toggle
 
 func editorlog_ligatures_toggle( toggled_on : bool ) -> void:
-	EneLog.pfunc(self)
+	trace()
 	editorlog_ligatures = toggled_on
-	if toggled_on: EneLog.printy("Enable EditorLog Ligatures")
-	else: EneLog.printy("Disable EditorLog Ligatures")
+	if toggled_on: trace_detail("Enable EditorLog Ligatures")
+	else: trace_detail("Disable EditorLog Ligatures")
 	for font_name in editorlog_font_names:
 		var font : FontVariation = editor_theme.get_font(font_name, "EditorFonts")
 		font.opentype_features = {1667329140: 1 if toggled_on else 0}
@@ -259,16 +276,16 @@ var editorlog_rotate_effect : bool = false :
 var sideways_effect : RichTextEffect = preload('sideways_effect.tres')
 
 func editorlog_rotate_toggle( toggled_on : bool ) -> void:
-	EneLog.pfunc(self)
+	trace()
 	if not is_instance_valid(output_rtl): return
 	if not is_instance_valid(sideways_effect): return
 	editorlog_rotate_effect = toggled_on
 
 	if toggled_on:
-		EneLog.printy("Enable EditorLog Sideways Text Effect")
+		trace_detail("Enable EditorLog Sideways Text Effect")
 		output_rtl.install_effect(sideways_effect)
 	else:
-		EneLog.printy("Disable EditorLog Sideways Text Effect")
+		trace_detail("Disable EditorLog Sideways Text Effect")
 		if sideways_effect in output_rtl.custom_effects:
 			output_rtl.custom_effects.erase(sideways_effect)
 
@@ -283,7 +300,7 @@ var editorlog_search : bool = false :
 	set = editorlog_search_toggle
 
 func editorlog_search_toggle( toggled_on : bool ) -> void:
-	EneLog.pfunc(self)
+	trace()
 	if not is_instance_valid(editor_log): return
 	editorlog_search = toggled_on
 	EditorLog.toggle_search_bar(editor_log, toggled_on)
@@ -305,14 +322,14 @@ var editorlog_url_links : bool = false :
 var output_rtl_og_conn : Array
 
 func editorlog_url_links_set( toggle_on:bool ) -> void:
-	EneLog.pfunc(self)
+	trace()
 	editorlog_url_links = toggle_on
 	if toggle_on: editorlog_url_links_enabled()
 	else: editorlog_url_links_disabled()
 
 
 func editorlog_url_links_enabled() -> void:
-	EneLog.pfunc(self)
+	trace()
 	if not is_instance_valid( output_rtl ): return
 
 	# Remove default annoying URL handling.
@@ -328,7 +345,7 @@ func editorlog_url_links_enabled() -> void:
 
 func editorlog_url_links_disabled() -> void:
 	if not is_instance_valid( output_rtl ): return
-	EneLog.pfunc(self)
+	trace()
 	if output_rtl.meta_clicked.is_connected(_on_editorlog_link_clicked):
 		output_rtl.meta_clicked.disconnect(_on_editorlog_link_clicked)
 	for c : Dictionary in output_rtl_og_conn:
