@@ -12,6 +12,9 @@ class_name EneLog
 # TODO Configuration is global, I wish to have override objects, or contexts
 # which can alter the configuration per function, or per class or something.
 
+const MAX_INT : int = 0x7FFF_FFFF_FFFF_FFFF
+const MIN_INT : int = -0x8000_0000_0000_0000
+
 # ██████  ██████   ██████  ██████  ███████ ██████  ████████ ██ ███████ ███████ #
 # ██   ██ ██   ██ ██    ██ ██   ██ ██      ██   ██    ██    ██ ██      ██      #
 # ██████  ██████  ██    ██ ██████  █████   ██████     ██    ██ █████   ███████ #
@@ -32,11 +35,14 @@ static var threshold : int = 1000
 static var delay_amount : int = 100
 
 # Stack Flow
-static var prev_stack_size : int = 32
 static var prev_stack : Array[Dictionary]
+static var prev_stack_size : int = 32
+static var prev_stack_dist : int = 0
 
-static func save_stack( used_stack : Array[Dictionary] ) -> void:
-	prev_stack = used_stack
+static func save_stack( stack : Array ) -> void:
+	prev_stack_dist = stack.size() - prev_stack_size
+	prev_stack_size = stack.size()
+	prev_stack = stack
 
 # Filter
 static var ignore_filter : Array[String] = []
@@ -121,26 +127,20 @@ static func disable() -> void:
 static func enable() -> void:
 	disabled = false
 
-# FIXME stack usage is junk, calling through this function will cause
-# printy to add another layer on error which is not necessary.
-static func pfunc(object : Object = null, stack : Array[Dictionary] = []) -> void:
+
+static func trace(args : Dictionary = {}, stack : Array[Dictionary] = [], object : Object = null) -> void:
 	if stack.is_empty():
 		stack = get_stack()
-		stack.pop_front() # Ditch the EneLog.pfunc entry from the top
+		stack.pop_front() # this stackframe
 
 	var call_site : Dictionary = stack.front()
-	var call_from : Dictionary = stack[1] if stack.size() > 1 else stack.front()
-	# A stack frame looks like this: {
-	#	function:bar,
-	#	line:12,
-	#	source:res://script.gd
-	#}
+	# A stack frame: { function:bar, line:12, source:res://script.gd }
 	var parts : Array[String] = [
-		"[url='{source}:{line}']".format(call_from),
-		"{function}()".format(call_site),
-		"[/url]"
+		"[url='{source}:{line}']{function}[/url]".format(call_site),
+		JSON.stringify(args, '', false)
 	]
 	printy("".join(parts), [], object, "", stack)
+
 
 
 static func printy(
@@ -188,10 +188,18 @@ static func printy(
 		stack = get_stack()
 		stack.pop_front() # Ditch the EneLog.printy entry from the top
 
+	var stack_size : int = stack.size()
+	var distance : int = stack_size - prev_stack_size
+
 	# Create a scope guard to save the stack when we are done.
 	var _save_stack := Enetheru.async.ScopeGuard.new(save_stack.bind(stack))
 
-	var stack_size : int = stack.size()
+	# newline after stack exhaustion
+	if stack_size == 0 and top_level == false:
+		top_level = true
+		newline = true
+	elif stack_size > 0:
+		top_level = false
 
 	# Network ID
 	var rpc_string : String
@@ -212,36 +220,35 @@ static func printy(
 			if node.is_inside_tree():
 				sender_id = node.multiplayer.get_remote_sender_id()
 		if sender_id > 0:
-			rpc_string = '[color=cornflower_blue]󰏴 %s[/color]' % Enetheru.string.id_str(sender_id)
-	else:
-		net_string = ""
-
-	# newline after stack exhaustion
-	if stack_size == 0 and top_level == false:
-		top_level = true
-		newline = true
-	elif stack_size > 0: top_level = false
+			rpc_string = '[color=cornflower_blue]󰏴 %s[/color]' % ("%016X"%sender_id).right(4)
 
 	# Create the dictionary used for formatting the output
 	var fd : Dictionary = {
 		&'before': '',
 		&'proc': proc_string ,
-		&'net': '' if net_string.is_empty() else '|' + net_string,
-		&'rpc': '' if rpc_string.is_empty() else '|' + rpc_string,
+		&'net': '      ' if net_string.is_empty() else net_string,
+		&'rpc': '      ' if rpc_string.is_empty() else rpc_string,
+		&'indent':indent,
 		&'icon':'',
 		&'object': '',
 		&'msg': '',
 		&'after': '',
 	}
 
+	if stack.size() > 1:
+		fd[&'call_site'] = "[url='{source}:{line}'] [/url]".format(stack[1])
+	else:
+		fd[&'call_site'] = "󰘦 " # it would be nice to have the trigger in here.
+		# like a signal, or an engine virtual etc.
+
 	# Get the object based format dictionary
 	var object_fd : Dictionary
 	if object:
 		object_fd = get_object_fd(object)
 		fd[&'object'] = "[color={color}]{icon}{name}[/color].".format(object_fd)
-		fd[&'icon'] = ' 󰊕'
+		fd[&'icon'] = '󰊕 '
 	else:
-		fd[&'object'] = ''
+		fd[&'object'] = '  '
 
 	fd.merge( get_msg_fd( content, args ), true )
 
@@ -249,23 +256,19 @@ static func printy(
 	# on to this call  to determine which icon i should use. Because awaiting
 	# breaks up the control flow into chunks, and we could be looking at
 	# a completely different call stack
+	var ssize : int = stack_size
 	if indent.is_empty():
-		var ssize : int = stack_size
 		if fd[&'icon']: ssize -= 1
-		var distance : int = stack_size - prev_stack_size
 		if distance > 0:
 			ssize -= distance
 			fd[&'flow'] = "└─" + "".rpad(distance-1, ' ') + "┐"
 		else:
 			fd[&'flow'] = "│"
-		fd[&'indent'] = "".lpad( ssize, '  ' )
+		fd[&'indent'] = "  " + " ".repeat(ssize-1)
 		#fd['proc'] += "%x" % ssize # DEBUG, useful to check stack size.
-	else:
-		fd[&'indent'] = indent
-		fd[&'flow'] = ""
 
-	# Update Prev vars
-	prev_stack_size = stack_size
+	if distance < 0:
+		fd[&'flow_return'] = "┌─"+"──".repeat(abs(distance+1))+"┘"
 
 	# Finished processing data, onto printing.
 	if is_error:
@@ -280,12 +283,15 @@ static func printy(
 	var before : String = "{before}".format(fd)
 
 	# The left column is made of columns of data.
-	var left : String = "{proc}{net}{rpc}{indent} ".format( fd )
-	var mid : String = "{icon}{flow}{object}{msg}".format( fd )
+	var left : String = "{proc}|{rpc}|{net}|".format( fd )
+	var mid : String = "{indent}{icon}{flow}{call_site}{object}{msg}".format( fd )
 	#var right : String ? would assume a column width.
 	# (left + mid).rpad( width - right.size, ' ') + right
 
 	var after : String = "{after}".format(fd)
+
+	if distance < 0:
+		print_rich(left + "{indent}{flow_return}".format(fd))
 
 	# newline if we want to break the flow on purpose.
 	if newline: print()

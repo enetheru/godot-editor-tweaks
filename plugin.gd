@@ -17,17 +17,18 @@ const EditorLog = preload('uid://bqnxqo33qkevi')
 # │  | || '_/ _` / _| | ' \/ _` |
 # │  |_||_| \__,_\__|_|_||_\__, |
 # ╰────────────────────────|___/───
-var trace_enabled : bool = false
+var trace_enabled : bool = true
 
-func trace() -> void:
+func trace(args : Dictionary = {}) -> void:
 	if not trace_enabled : return
 	var stack := get_stack(); stack.pop_front()
-	EneLog.pfunc( self, stack )
+	EneLog.trace(args, stack, self)
 
-func trace_detail(content : Variant) -> void:
+
+func trace_detail(content : Variant, object : Object = null) -> void:
 	if not trace_enabled : return
 	var stack := get_stack(); stack.pop_front()
-	EneLog.printy(content, null, self, "", stack)
+	EneLog.printy(content, null, object, "", stack)
 
 
 # ██████  ██████   ██████  ██████  ███████ ██████  ████████ ██ ███████ ███████ #

@@ -1,5 +1,9 @@
 @tool
 
+# TODO: re-bind CTRL-F to find the text that is highlighted
+#		or open the find dialog. Requires unbinding existing filter command
+# TODO: change the filter icon to the funnel.
+
 const EditorLogHelper = preload('uid://bqnxqo33qkevi')
 
 static var editor_log_helper : EditorLogHelper
@@ -25,15 +29,16 @@ static func toggle_search_bar( logref : BoxContainer, toggled_on : bool ) -> voi
 # ╰────────────────────────|___/───
 var trace_enabled : bool = false
 
-func trace() -> void:
+func trace(args : Dictionary = {}) -> void:
 	if not trace_enabled : return
 	var stack := get_stack(); stack.pop_front()
-	EneLog.pfunc( self, stack )
+	EneLog.trace(args, stack, self)
 
-func trace_detail(content : Variant) -> void:
+
+func trace_detail(content : Variant, object : Object = null) -> void:
 	if not trace_enabled : return
 	var stack := get_stack(); stack.pop_front()
-	EneLog.printy(content, null, self, "", stack)
+	EneLog.printy(content, null, object, "", stack)
 
 
 # ██████  ██████   ██████  ██████  ███████ ██████  ████████ ██ ███████ ███████ #
@@ -106,6 +111,7 @@ var match_next_b : Button
 var search_hide_b : Button
 
 var debounce_timer : Timer
+var _vsb_debounce_flag : bool = false
 
 
 # │  ___     _
@@ -174,20 +180,22 @@ func _on_editorlog_clear_pressed() -> void:
 	update_search_ui()
 
 
-var _vsb_debounce : bool = false
+## VSB is VerticalScrollbar
 func _on_vsb_changed( _value : float ) -> void:
-	if _vsb_debounce: return
-	_vsb_debounce = true
+	if _vsb_debounce_flag: return
+	_vsb_debounce_flag = true
 	_rtl_vsb.value_changed.disconnect(_on_vsb_changed)
 	trace_detail("_on_vsb_changed(%s)"% [_value])
 	await EditorInterface.get_base_control().get_tree().create_timer(1).timeout
 	@warning_ignore('return_value_discarded')
 	_rtl_vsb.value_changed.connect(_on_vsb_changed)
-	_vsb_debounce = false
+	_vsb_debounce_flag = false
 
 
 func _on_editorlog_rtl_draw() -> void:
 	if not _rtl.is_finished(): return
+	if _rtl.get_total_character_count() == 0:
+		_on_editorlog_clear_pressed()
 
 	var current_v : float = _rtl_vsb.value
 	if current_v != _rtl_scroll_value:
@@ -732,7 +740,8 @@ func draw_highlight_word(
 	w_rect.position.x += pre_size.x
 	w_rect.position.y -= _rtl_scroll_value
 
-	_rtl.draw_rect(w_rect, word_color)
+	if l_rect.intersects(_rtl_visible_content_rect):
+		_rtl.draw_rect(w_rect, word_color)
 
 
 func draw_highlight_line(
@@ -792,7 +801,8 @@ func                        ___________RTL___________              ()->void:pass
 # paragraph.
 func get_paragraph_range( p_num : int ) -> Vector2i:
 	assert( p_num >= 0)
-	assert( p_num < _rtl.get_paragraph_count())
+	var p_max : int = _rtl.get_paragraph_count()
+	assert( p_num <= p_max, "%d <= %d" % [p_num, p_max])
 
 	var p_range := Vector2i(-1,-1)
 	for line_num : int in _rtl.get_line_count():
