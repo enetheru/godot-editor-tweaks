@@ -78,8 +78,7 @@ func trace(args : Dictionary = {}) -> void:
 
 func trace_detail(content : Variant, object : Object = null) -> void:
 	if not trace_enabled : return
-	var stack := get_stack(); stack.pop_front()
-	EneLog.printy(content, null, object, "", stack)
+	EneLog.printy(content, null, object, "", get_stack())
 
 # ██████  ██████   ██████  ██████  ███████ ██████  ████████ ██ ███████ ███████ #
 # ██   ██ ██   ██ ██    ██ ██   ██ ██      ██   ██    ██    ██ ██      ██      #
@@ -126,12 +125,6 @@ func _on_target_ready() -> void:
 func _on_target_tree_exiting() -> void:
 	trace()
 	editor_settings.settings_changed.disconnect( _on_editor_settings_changed )
-
-
-func _notification(what: int) -> void:
-	match what:
-		NOTIFICATION_PREDELETE:
-			trace_detail("NOTIFICATION_PREDELETE")
 
 
 #      ██████  ██    ██ ███████ ██████  ██████  ██ ██████  ███████ ███████     #

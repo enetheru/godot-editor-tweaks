@@ -27,8 +27,7 @@ func trace(args : Dictionary = {}) -> void:
 
 func trace_detail(content : Variant, object : Object = null) -> void:
 	if not trace_enabled : return
-	var stack := get_stack(); stack.pop_front()
-	EneLog.printy(content, null, object, "", stack)
+	EneLog.printy(content, null, object, "", get_stack())
 
 
 # ██████  ██████   ██████  ██████  ███████ ██████  ████████ ██ ███████ ███████ #
@@ -332,6 +331,9 @@ func editorlog_url_links_set( toggle_on:bool ) -> void:
 func editorlog_url_links_enabled() -> void:
 	trace()
 	if not is_instance_valid( output_rtl ): return
+
+	# output_rtl.autowrap_mode = TextServer.AUTOWRAP_OFF
+	# output_rtl.autowrap_trim_flags = TextServer.BREAK_NONE
 
 	# Remove default annoying URL handling.
 	output_rtl_og_conn = output_rtl.meta_clicked.get_connections()

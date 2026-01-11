@@ -4,22 +4,22 @@
 #		or open the find dialog. Requires unbinding existing filter command
 # TODO: change the filter icon to the funnel.
 
-const EditorLogHelper = preload('uid://bqnxqo33qkevi')
+const Self = preload('uid://bqnxqo33qkevi')
 
-static var editor_log_helper : EditorLogHelper
+static var static_self : Self
 
 static func toggle_search_bar( logref : BoxContainer, toggled_on : bool ) -> void:
 	if toggled_on:
-		if is_instance_valid(editor_log_helper): return
+		if is_instance_valid(static_self): return
 		print("Enable EditorLog Search Bar")
-		editor_log_helper = EditorLogHelper.new()
-		editor_log_helper.find_buildtin_editorlog_controls( logref )
-		editor_log_helper.enable_search()
+		static_self = Self.new()
+		static_self.find_buildtin_editorlog_controls( logref )
+		static_self.enable_search()
 	else:
-		if is_instance_valid(editor_log_helper):
+		if is_instance_valid(static_self):
 			print("Disable EditorLog Search Bar")
-			editor_log_helper.disable_search()
-			editor_log_helper = null
+			static_self.disable_search()
+			static_self = null
 
 
 # │ _____            _
@@ -37,8 +37,7 @@ func trace(args : Dictionary = {}) -> void:
 
 func trace_detail(content : Variant, object : Object = null) -> void:
 	if not trace_enabled : return
-	var stack := get_stack(); stack.pop_front()
-	EneLog.printy(content, null, object, "", stack)
+	EneLog.printy(content, null, object, "", get_stack())
 
 
 # ██████  ██████   ██████  ██████  ███████ ██████  ████████ ██ ███████ ███████ #
@@ -265,7 +264,7 @@ func _on_match_prev_pressed() -> void:
 			current_match_idx = match_indices .size()
 			at_first_match = false
 		else:
-			trace_detail("TODO: pop for being at the top")
+			trace_detail("# TODO: pop for being at the top")
 			at_first_match = true
 			return
 
@@ -284,7 +283,7 @@ func _on_match_next_pressed() -> void:
 			current_match_idx = 1
 			at_last_match = false
 		else:
-			trace_detail("TODO: pop for being at the bottom")
+			trace_detail("# TODO: pop for being at the bottom")
 			at_last_match = true
 			return
 
