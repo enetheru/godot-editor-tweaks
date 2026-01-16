@@ -37,9 +37,9 @@ class LogCtx:
 
 	#proc_fd
 	var proc:String
-	var proc_c:String = Color(0.4, 0.4, 0.4).to_html()
-	var proc_i:String = " "
-	var proc_p:String = "%05d" % OS.get_process_id()
+	var proc_color:String = Color(0.4, 0.4, 0.4).to_html()
+	var proc_icon:String = " "
+	var proc_id:String = "%05d" % OS.get_process_id()
 
 	var left:String = ""
 
