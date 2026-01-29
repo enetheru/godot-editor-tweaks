@@ -7,6 +7,9 @@ class_name EneLog
 # ╰─|_|─────────────────|__/-<<
 # Logging utility for pretty printing to output console
 
+## TODO Investigate using  WorkerThreadPool.get_caller_task_id() to
+## identify whether we are in a thread and what its ID is.
+
 const MAX_INT:int = 0x7FFF_FFFF_FFFF_FFFF
 const MIN_INT:int = -0x8000_0000_0000_0000
 
@@ -248,9 +251,26 @@ static func trace(args: Dictionary = {}, stack: Array = [], object: Object = nul
 		stack = get_stack()
 		stack.pop_front()
 	var call_site = stack.front()
+	# transform args dictionary values depending on their type.
+	var args3:String = ', '.join(args.keys().map(func(key:Variant) -> String:
+		var value:Variant = args.get(key)
+		if value is Resource:
+			return "%s=%s" % [ key, Core.link(
+					value.resource_path,
+					value.resource_path.get_file())]
+		if value is Callable:
+			return "%s=%s" % [key, value.get_method()]
+		if value is Array:
+			if value.is_typed():
+				#TODO Future get the typename of a typed array
+				return "%s=T[%s]" % [key, value.size()]
+				#var type:Variant = value.get_typed_builtin()
+			return "%s=Array[%s]" % [key, value.size()]
+		return str(key) + "=" + str(value)
+		))
 	var parts = [
 		"[url='{source}:{line}']{function}[/url]".format(call_site),
-		JSON.stringify(args, '', false)
+		"(", args3, ")"
 	]
 	printy("".join(parts), [], object, "", stack)
 
