@@ -6,9 +6,9 @@
 
 const Self = preload('uid://bqnxqo33qkevi')
 
-static var static_self : Self
+static var static_self:Self
 
-static func toggle_search_bar( logref : BoxContainer, toggled_on : bool ) -> void:
+static func toggle_search_bar( logref:BoxContainer, toggled_on:bool ) -> void:
 	if toggled_on:
 		if is_instance_valid(static_self): return
 		print("Enable EditorLog Search Bar")
@@ -20,24 +20,6 @@ static func toggle_search_bar( logref : BoxContainer, toggled_on : bool ) -> voi
 			print("Disable EditorLog Search Bar")
 			static_self.disable_search()
 			static_self = null
-
-
-# │ _____            _
-# │|_   _| _ __ _ __(_)_ _  __ _
-# │  | || '_/ _` / _| | ' \/ _` |
-# │  |_||_| \__,_\__|_|_||_\__, |
-# ╰────────────────────────|___/───
-var trace_enabled : bool = false
-
-func trace(args : Dictionary = {}) -> void:
-	if not trace_enabled : return
-	var stack := get_stack(); stack.pop_front()
-	EneLog.trace(args, stack, self)
-
-
-func trace_detail(content : Variant, object : Object = null) -> void:
-	if not trace_enabled : return
-	EneLog.printy(content, null, object, "", get_stack())
 
 
 # ██████  ██████   ██████  ██████  ███████ ██████  ████████ ██ ███████ ███████ #
@@ -53,33 +35,33 @@ func                        ________PROPERTIES_______              ()->void:pass
 # │| _|/ _` | |  _/ _ \ '_| |__/ _ \/ _` |
 # │|___\__,_|_|\__\___/_| |____\___/\__, |
 # ╰─────────────────────────────────|___/─
-# References to all of the main components.
-var _editorlog : BoxContainer
-var _el_l_vb : VBoxContainer
-var _rtl : RichTextLabel
-var _rtl_vsb : VScrollBar
-var _el_filter_line : LineEdit
+# References to all of the main components, created for Godot 4.5.2
+var _editorlog:BoxContainer
+var _el_l_vb:VBoxContainer
+var _rtl:RichTextLabel
+var _rtl_vsb:VScrollBar
+var _el_filter_line:LineEdit
 
-var _el_r_vb : VBoxContainer
-var _el_r_hb1 : HBoxContainer
-var _el_clear : Button
-var _el_copy : Button
+var _el_r_vb:VBoxContainer
+var _el_r_hb1:HBoxContainer
+var _el_clear:Button
+var _el_copy:Button
 
-var _el_r_sep1 : HSeparator
+var _el_r_sep1:HSeparator
 
-var _el_r_hb2 : HBoxContainer
-var _el_collapse : Button
-var _el_filter : Button
+var _el_r_hb2:HBoxContainer
+var _el_collapse:Button
+var _el_filter:Button
 
-var _el_r_sep2 : HSeparator
+var _el_r_sep2:HSeparator
 
-var _el_standard : Button
-var _el_error : Button
-var _el_warning : Button
-var _el_editor : Button
+var _el_standard:Button
+var _el_error:Button
+var _el_warning:Button
+var _el_editor:Button
 
 # Editor Theme.
-var editor_theme : Theme :
+var editor_theme:Theme :
 	get(): return EditorInterface.get_editor_theme()
 
 # │ ___                  _      _    _
@@ -87,30 +69,30 @@ var editor_theme : Theme :
 # │\__ \/ -_) _` | '_/ _| ' \  | |__| | ' \/ -_)
 # │|___/\___\__,_|_| \__|_||_| |____|_|_||_\___|
 # ╰─────────────────────────────────────────────
-var right_row3 : HBoxContainer
-var search_toggle_b : Button
-var right_sep3 : HSeparator
+var right_row3:HBoxContainer
+var search_toggle_b:Button
+var right_sep3:HSeparator
 
-var search_hbox : HBoxContainer
+var search_hbox:HBoxContainer
 # I want to replicate what clion has, and skip for now the innecessary.
 # [> for show replace]
 # [history | line_edit | insert special | match case | match word | enable regex]
 # [num results | up arrow | down arrow | filter | options...]
-var search_history_b : Button
-var search_pattern_le : LineEdit
-var pattern_insert_b : Button
-var pattern_case_b : Button
-var pattern_word_b : Button
-var pattern_regex_b : Button
-var match_count_lbl : Label
-var match_prev_b : Button
-var match_next_b : Button
-#var search_filter_b : Button # for selection only searching
-#var search_options_b : Button
-var search_hide_b : Button
+var search_history_b:Button
+var search_pattern_le:LineEdit
+var pattern_insert_b:Button
+var pattern_case_b:Button
+var pattern_word_b:Button
+var pattern_regex_b:Button
+var match_count_lbl:Label
+var match_prev_b:Button
+var match_next_b:Button
+#var search_filter_b:Button # for selection only searching
+#var search_options_b:Button
+var search_hide_b:Button
 
-var debounce_timer : Timer
-var _vsb_debounce_flag : bool = false
+var debounce_timer:Timer
+var _vsb_debounce_flag:bool = false
 
 
 # │  ___     _
@@ -118,13 +100,12 @@ var _vsb_debounce_flag : bool = false
 # │| (__/ _ \ / _ \ || | '_(_-<
 # │ \___\___/_\___/\_,_|_| /__/
 # ╰──────────────────────────────
-
-var paragraph_color := Color(Color.YELLOW, 0.3)
-var current_paragraph_color := Color(Color.YELLOW, 0.3)
-var line_color := Color(Color.YELLOW, 0.3)
-var current_line_color := Color.YELLOW
-var word_color := Color(Color.YELLOW, 0.3)
-var current_word_color := Color(Color.YELLOW, 0.3)
+var paragraph_color:Color         = Color(Color.YELLOW, 0.3)
+var current_paragraph_color:Color = Color(Color.YELLOW, 0.3)
+var line_color:Color              = Color(Color.YELLOW, 0.3)
+var current_line_color:Color      = Color.YELLOW
+var word_color:Color              = Color(Color.YELLOW, 0.3)
+var current_word_color:Color      = Color(Color.YELLOW, 0.3)
 
 
 # │ ___     _                     _
@@ -132,40 +113,42 @@ var current_word_color := Color(Color.YELLOW, 0.3)
 # │ | || ' \  _/ -_) '_| ' \/ _` | |
 # │|___|_||_\__\___|_| |_||_\__,_|_|
 # ╰──────────────────────────────────
-var _rtl_total_char_count : int = -1
-var _rtl_p_cache : Array
+var _rtl_total_char_count:int = -1
+var _rtl_p_cache:Array
 
-# The scrollbar holds the value for how far through the document we are.
-var _rtl_scroll_value : float
+## The scrollbar holds the value for how far through the document we are.
+var _rtl_scroll_value:float
 
-# the visible content rect is the bounding box of the rich text character elements.
-var _rtl_visible_content_rect : Rect2
+## the visible content rect is the bounding box of the rich text character elements.
+var _rtl_visible_content_rect:Rect2
+var _rtl_visible_p_range:Vector2i
 
-var pattern_history : Array
-var search_pattern : String
+var pattern_history:Array
+var search_pattern:String
 
-# paragraph_num : [Vector2i pairs of absolute character start and end indexes]
-var match_results : Dictionary
-var match_indices  : Array[int]
+## paragraph_num:[Vector2i pairs of absolute character start and end indexes]
+var match_results:Dictionary
 
-var current_match_idx : int = 1
-var at_first_match : bool = false
-var at_last_match : bool = false
+## The matching paragraph index's, as a view into match_results.
+var match_indices :Array[int]
 
-var debounce_delay : float = 0.7
+var current_match_idx:int = 1
+var at_first_match:bool = false
+var at_last_match:bool = false
 
-# Cache
+var debounce_delay:float = 0.7
+
+## Cache
 var _rtl_content_margin := Vector2(8,8) # TODO fetch this from the theme
-var _rtl_font : Font
-var _rtl_font_size : int = 16
+var _rtl_font:Font
+var _rtl_font_size:int = 16
 
-
-# TODO delete the debug stuff.
-var _debug : bool = true
-var debug_info : Dictionary
-var matching_paragraphs : Dictionary
-var _debug_font : FontVariation
-var _debug_font_size : int
+## TODO delete the debug stuff.
+var _debug:bool = true
+var debug_info:Dictionary
+var matching_paragraphs:Dictionary
+var _debug_font:FontVariation
+var _debug_font_size:int
 
 #             ███████ ██    ██ ███████ ███    ██ ████████ ███████              #
 #             ██      ██    ██ ██      ████   ██    ██    ██                   #
@@ -180,12 +163,15 @@ func _on_editorlog_clear_pressed() -> void:
 
 
 ## VSB is VerticalScrollbar
-func _on_vsb_changed( _value : float ) -> void:
+func _on_vsb_changed( _value:float ) -> void:
 	if _vsb_debounce_flag: return
 	_vsb_debounce_flag = true
 	_rtl_vsb.value_changed.disconnect(_on_vsb_changed)
+
 	trace_detail("_on_vsb_changed(%s)"% [_value])
-	await EditorInterface.get_base_control().get_tree().create_timer(1).timeout
+	_rtl_visible_p_range = get_visible_paragraph_range()
+
+	await EditorInterface.get_base_control().get_tree().create_timer(0.1).timeout
 	@warning_ignore('return_value_discarded')
 	_rtl_vsb.value_changed.connect(_on_vsb_changed)
 	_vsb_debounce_flag = false
@@ -196,7 +182,7 @@ func _on_editorlog_rtl_draw() -> void:
 	if _rtl.get_total_character_count() == 0:
 		_on_editorlog_clear_pressed()
 
-	var current_v : float = _rtl_vsb.value
+	var current_v:float = _rtl_vsb.value
 	if current_v != _rtl_scroll_value:
 		# Trigger an update of the visual range?
 		_rtl_scroll_value = current_v
@@ -208,7 +194,7 @@ func _on_editorlog_rtl_draw() -> void:
 		if _debug: draw_debug()
 
 
-func _on_search_toggled( toggled_on : bool ) -> void:
+func _on_search_toggled( toggled_on:bool ) -> void:
 	if toggled_on:
 		search_hbox.show()
 		@warning_ignore_start('return_value_discarded')
@@ -223,7 +209,7 @@ func _on_search_toggled( toggled_on : bool ) -> void:
 		_el_clear.pressed.disconnect( _on_editorlog_clear_pressed )
 
 
-func _on_pattern_changed( new_pattern : String ) -> void:
+func _on_pattern_changed( new_pattern:String ) -> void:
 	trace_detail("_on_pattern_changed( %s )"% [new_pattern])
 	search_pattern = new_pattern
 	if not debounce_timer.is_stopped(): return
@@ -268,7 +254,7 @@ func _on_match_prev_pressed() -> void:
 			at_first_match = true
 			return
 
-	var p_num : int = match_indices [current_match_idx-1]
+	var p_num:int = match_indices [current_match_idx-1]
 	_rtl.scroll_to_line(p_num)
 	update_search_ui()
 
@@ -287,7 +273,7 @@ func _on_match_next_pressed() -> void:
 			at_last_match = true
 			return
 
-	var p_num : int = match_indices [current_match_idx-1]
+	var p_num:int = match_indices [current_match_idx-1]
 	_rtl.scroll_to_line(p_num)
 	update_search_ui()
 
@@ -299,11 +285,11 @@ func _on_match_next_pressed() -> void:
 #         ██      ██ ███████    ██    ██   ██  ██████  ██████  ███████         #
 func                        _________METHODS_________              ()->void:pass
 
-func find_buildtin_editorlog_controls( logref : BoxContainer ) -> void:
+func find_buildtin_editorlog_controls( logref:BoxContainer ) -> void:
 	trace()
 	# Main Control and children
 	_editorlog = logref
-	var interest : int = 0
+	var interest:int = 0
 	for child in _editorlog.get_children():
 		match interest:
 			0 when child is VBoxContainer:
@@ -328,7 +314,7 @@ func find_buildtin_editorlog_controls( logref : BoxContainer ) -> void:
 	for child in _el_r_vb.get_children():
 		match interest:
 			0 when child is HBoxContainer:
-				var btn : Button = child.get_child(0)
+				var btn:Button = child.get_child(0)
 				if btn.accessibility_name == "Clear Log":
 					_el_r_hb1 = child
 					interest += 1
@@ -336,7 +322,7 @@ func find_buildtin_editorlog_controls( logref : BoxContainer ) -> void:
 				_el_r_sep1 = child
 				interest += 1
 			2 when child is HBoxContainer:
-				var btn : Button = child.get_child(1)
+				var btn:Button = child.get_child(1)
 				if btn.accessibility_name == "Show Search":
 					_el_r_hb2 = child
 					interest += 1
@@ -344,22 +330,22 @@ func find_buildtin_editorlog_controls( logref : BoxContainer ) -> void:
 				_el_r_sep2 = child
 				interest += 1
 			4 when child is Button:
-				var btn : Button = child
+				var btn:Button = child
 				if btn.accessibility_name == "Standard Messages":
 					_el_standard = child
 					interest += 1
 			5 when child is Button:
-				var btn : Button = child
+				var btn:Button = child
 				if btn.accessibility_name == "Errors":
 					_el_error = child
 					interest += 1
 			6 when child is Button:
-				var btn : Button = child
+				var btn:Button = child
 				if btn.accessibility_name == "Warnings":
 					_el_warning = child
 					interest += 1
 			7 when child is Button:
-				var btn : Button = child
+				var btn:Button = child
 				if btn.accessibility_name == "Editor Messages":
 					_el_editor = child
 					interest += 1
@@ -401,7 +387,7 @@ func enable_search() -> void:
 
 func disable_search() -> void:
 	trace()
-	for node : Node in [right_row3, right_sep3, search_hbox]:
+	for node:Node in [right_row3, right_sep3, search_hbox]:
 		if is_instance_valid(node):
 			node.queue_free()
 
@@ -425,7 +411,7 @@ func do_search() -> void:
 
 	await cache_is_updated()
 
-	var search_info : Dictionary = {
+	var search_info:Dictionary = {
 		&"p_num":0,
 		&"p_max":_rtl_p_cache.size(),
 		&"pattern":search_pattern
@@ -452,7 +438,7 @@ func cache_is_updated() -> bool:
 	# Cache the output split into paragraphs, if changed.
 	# NOTE: Could I use the clear action to invalidate the cache ?
 	# And only add the new lines rather than rebuid the whole thing?
-	var total_char_count : int = _rtl.get_total_character_count()
+	var total_char_count:int = _rtl.get_total_character_count()
 	if _rtl_total_char_count != total_char_count:
 		# FIXME: character count is rudimentary, i should figure out
 		# something more accurate.
@@ -483,19 +469,19 @@ func clear_matches() -> void:
 
 
 # function assumes cached variables for draw are upto date.
-func is_character_visible( c_num : int ) -> int:
+func is_character_visible( c_num:int ) -> int:
 	trace_detail("is_character_visible( %d )" % [c_num])
-	var l_num : int = _rtl.get_character_line(c_num)
+	var l_num:int = _rtl.get_character_line(c_num)
 	trace_detail("char_line %s" % [l_num])
-	var l_range : Vector2i = _rtl.get_line_range(l_num)
+	var l_range:Vector2i = _rtl.get_line_range(l_num)
 	trace_detail("line_range %s" % [l_range])
 
-	var c_rect : Rect2 = _rtl_visible_content_rect
+	var c_rect:Rect2 = _rtl_visible_content_rect
 	trace_detail("visible_rect %s" % [c_rect])
-	var c_pos : Vector2 = c_rect.position
-	var c_scroll : float = _rtl_scroll_value
+	var c_pos:Vector2 = c_rect.position
+	var c_scroll:float = _rtl_scroll_value
 
-	var l_rect : Rect2 = get_line_rect(l_num)
+	var l_rect:Rect2 = get_line_rect(l_num)
 	l_rect.position += c_pos
 	l_rect.position.y -= c_scroll
 	trace_detail("line_rect %s" % [l_rect])
@@ -514,19 +500,19 @@ func find_smallest(
 			size: int,  # Exclusive end of range (e.g., total_lines); search from 0 to size-1
 			check_func: Callable,  # (index: int) -> direction and magnitude to head, or 0 for exact match.
 			guess_start: int = (size >> 1),
-			margin : int = 0
+			margin:int = 0
 			) -> int:
 	trace_detail("find_smallest( size: %d, func:%s, guess: %d, margin:%d)" % [
 			size, check_func.get_method(), guess_start, margin ])
 	assert( size > 0 )
-	var current : int = clamp(guess_start, 0, size - 1)
-	var largest : int = size
-	var smallest : int = 0
+	var current:int = clamp(guess_start, 0, size - 1)
+	var largest:int = size
+	var smallest:int = 0
 
 	while current >= smallest and current < largest:
 		trace_detail("closing_window: (%s, %s)" % [smallest, largest])
 		trace_detail("current: %d" % current)
-		var step : int = check_func.call(current)
+		var step:int = check_func.call(current)
 		trace_detail("step: %d" % step)
 		if abs(step) <= margin: return current # within margin
 
@@ -546,19 +532,20 @@ func find_smallest(
 #                    ██ ██      ██   ██ ██   ██ ██      ██   ██                #
 #               ███████ ███████ ██   ██ ██   ██  ██████ ██   ██                #
 func                        __________SEARCH_________              ()->void:pass
+# TODO put the search into a worker for threadpooling.
 
 func basic_search(
-			results : Dictionary,
-			paragraph : String,
-			search_info : Dictionary ) -> Dictionary:
-	var pattern : String = search_info.pattern
+			results:Dictionary,
+			paragraph:String,
+			search_info:Dictionary ) -> Dictionary:
+	var pattern:String = search_info.pattern
 	if pattern in paragraph:
 		# TODO capture the location of the word within the paragraph
 		# TODO implement word, case, regex features
 		var result_array := Array()
-		var from : int = 0
+		var from:int = 0
 		while from < paragraph.length():
-			var match_start : int = paragraph.findn(pattern, from)
+			var match_start:int = paragraph.findn(pattern, from)
 			if match_start < 0: break
 			result_array.append(Vector2i(match_start, match_start + pattern.length()))
 			from += match_start + pattern.length() + 1
@@ -667,7 +654,7 @@ func create_search_control() -> void:
 	search_hide_b = Button.new()
 	search_hide_b.icon = editor_theme.get_icon("clear", "LineEdit")
 
-	for button : Button in [
+	for button:Button in [
 				search_history_b, pattern_insert_b, pattern_case_b,
 				pattern_word_b, pattern_regex_b, match_prev_b,
 				match_next_b, search_hide_b,]:
@@ -710,29 +697,30 @@ func create_search_control() -> void:
 #                      ██   ██ ██   ██ ██   ██ ██ ███ ██                       #
 #                      ██████  ██   ██ ██   ██  ███ ███                        #
 func                        __________DRAW___________              ()->void:pass
+#TODO I need to pre-calculate the rects because doing it on the fly is super slow.
 
 func draw_highlight_word(
-			word_range : Vector2i,
-			_color : Color,
-			_filled : bool = true,
-			_width : int = -1 ) -> void:
-	var p_num : int = _rtl.get_character_paragraph(word_range.x)
-	var l_num : int = _rtl.get_character_line(word_range.x)
-	var l_range : Vector2i = _rtl.get_line_range(l_num)
-	var l_rect : Rect2= get_line_rect(l_num)
+			word_range:Vector2i,
+			_color:Color,
+			_filled:bool = true,
+			_width:int = -1 ) -> void:
+	var p_num:int = _rtl.get_character_paragraph(word_range.x)
+	var l_num:int = _rtl.get_character_line(word_range.x)
+	var l_range:Vector2i = _rtl.get_line_range(l_num)
+	var l_rect:Rect2= get_line_rect(l_num)
 
-	var line_text : String = _rtl_p_cache[p_num]
+	var line_text:String = _rtl_p_cache[p_num]
 
 	# make word range relative to the paragraph.
 	word_range.x -= l_range.x
 	word_range.y -= l_range.x
 
-	var pre_text : String = line_text.substr(0,word_range.x)
+	var pre_text:String = line_text.substr(0,word_range.x)
 
-	var w_text : String = line_text.substr(word_range.x, word_range.y - word_range.x)
+	var w_text:String = line_text.substr(word_range.x, word_range.y - word_range.x)
 
-	var pre_size : Vector2 = _rtl_font.get_multiline_string_size(pre_text)
-	var w_size : Vector2 = _rtl_font.get_multiline_string_size(w_text)
+	var pre_size:Vector2 = _rtl_font.get_multiline_string_size(pre_text)
+	var w_size:Vector2 = _rtl_font.get_multiline_string_size(w_text)
 
 	var w_rect := Rect2(_rtl_content_margin, w_size)
 	w_rect.position += l_rect.position
@@ -744,12 +732,12 @@ func draw_highlight_word(
 
 
 func draw_highlight_line(
-			l_num : int,
-			color : Color,
-			filled : bool = true,
-			width : int = -1
+			l_num:int,
+			color:Color,
+			filled:bool = true,
+			width:int = -1
 			) -> void:
-	var l_rect : Rect2 = get_line_rect(l_num)
+	var l_rect:Rect2 = get_line_rect(l_num)
 	l_rect.position += _rtl_content_margin
 	l_rect.position.y -= _rtl_scroll_value
 
@@ -758,12 +746,12 @@ func draw_highlight_line(
 
 
 func draw_highlight_paragraph(
-			p_num : int,
-			color : Color,
-			filled : bool = true,
-			width : int = -1
+			p_num:int,
+			color:Color,
+			filled:bool = true,
+			width:int = -1
 			) -> void:
-	var p_range : Vector2i = get_paragraph_range(p_num)
+	var p_range:Vector2i = get_paragraph_char_range(p_num)
 	var l_range := Vector2i(
 		_rtl.get_character_line(p_range.x),
 		_rtl.get_character_line(p_range.y))
@@ -771,23 +759,24 @@ func draw_highlight_paragraph(
 	for l_num in range(l_range.x, l_range.y):
 		draw_highlight_line(l_num, color, filled, width)
 
-	for word_range : Vector2i in match_results[p_num]:
-		var abs_word : Vector2i = word_range + Vector2i(p_range.x, p_range.x)
+	for word_range:Vector2i in match_results[p_num]:
+		var abs_word:Vector2i = word_range + Vector2i(p_range.x, p_range.x)
 		draw_highlight_word( abs_word , word_color )
 
 
-# TODO: highlight word segments
-# NOTE:  might it be more efficient to figure out the minimum line, and maximum line that is in view?
 func draw_search() -> void:
-	if match_indices .is_empty(): return
+	if match_indices.is_empty(): return
 	if not _rtl.is_finished(): return
 
-	var current_paragraph_idx : int = match_indices [current_match_idx-1]
-	draw_highlight_paragraph( current_paragraph_idx, current_paragraph_color, false )
+	# Draw the Highlighted Match, aka the focused match.
+	var hl_idx:int = match_indices[current_match_idx-1]
+	if hl_idx > _rtl_visible_p_range.x and hl_idx < _rtl_visible_p_range.y:
+		draw_highlight_paragraph( hl_idx, current_paragraph_color, false )
 
-	for p_num : int in match_indices :
-		draw_highlight_paragraph( p_num, paragraph_color, true )
-
+	# Draw the rest of the matches.
+	for p_num:int in match_indices :
+		if p_num > _rtl_visible_p_range.x and p_num < _rtl_visible_p_range.y:
+			draw_highlight_paragraph( p_num, paragraph_color, true )
 
 
 #                           ██████  ████████ ██                                #
@@ -796,39 +785,116 @@ func draw_search() -> void:
 #                           ██   ██    ██    ██                                #
 #                           ██   ██    ██    ███████                           #
 func                        ___________RTL___________              ()->void:pass
-# There is no builtin method to get the character index for the start of the
-# paragraph.
-func get_paragraph_range( p_num : int ) -> Vector2i:
+
+## There is no builtin method to get the character index for the start of the
+## paragraph.
+func get_paragraph_char_range( p_num:int ) -> Vector2i:
 	assert( p_num >= 0)
-	var p_max : int = _rtl.get_paragraph_count()
+	var p_max:int = _rtl.get_paragraph_count()
 	assert( p_num <= p_max, "%d <= %d" % [p_num, p_max])
 
 	var p_range := Vector2i(-1,-1)
-	for line_num : int in _rtl.get_line_count():
-		var line_range : Vector2i = _rtl.get_line_range(line_num)
+	for line_num:int in _rtl.get_line_count():
+		var line_range:Vector2i = _rtl.get_line_range(line_num)
 
 		# Match the start first.
 		if p_range.x == -1:
-			var char_p : int = _rtl.get_character_paragraph(line_range.x)
+			var char_p:int = _rtl.get_character_paragraph(line_range.x)
 			if char_p == p_num:
 				p_range.x = line_range.x
 
 		# Then match the end.
 		if p_range.x != -1:
-			var char_p : int = _rtl.get_character_paragraph(line_range.y-1)
+			var char_p:int = _rtl.get_character_paragraph(line_range.y-1)
 			if char_p != p_num: break
 			p_range.y = line_range.y
 
 	return p_range
 
 
-func get_line_rect( l_num : int ) -> Rect2:
+## Get the bounding rectangle of a line using its index.
+func get_line_rect( l_num:int ) -> Rect2:
 	if l_num >= _rtl.get_line_count(): return Rect2()
-	var l_offset : float = _rtl.get_line_offset(l_num)
+	var l_offset:float = _rtl.get_line_offset(l_num)
 	return Rect2(
 		Vector2(0, l_offset),
 		Vector2(_rtl.get_line_width(l_num), _rtl.get_line_height(l_num))
 	)
+
+
+## Find the Range of paragraphs that are currently visible.
+## Uses the vertical scroll bar for the document position,
+## and binary search.
+func get_visible_paragraph_range() -> Vector2i:
+	trace()
+	var n := _rtl.get_paragraph_count()
+	if n == 0 or not _rtl.is_visible_in_tree():
+		return Vector2i(-1, -1)
+
+	if not _rtl.is_finished(): return Vector2i(-1, -1)
+
+	var top_y := _rtl.get_v_scroll_bar().value
+
+	# ── Binary search for first paragraph where para_top >= top_y ──
+	var left := 0
+	var right := n - 1
+	var first := -1
+	while left <= right:
+		var mid := (left + right) / 2
+		var y := _rtl.get_paragraph_offset(mid)
+		if y >= top_y:
+			first = mid
+			right = mid - 1
+		else:
+			left = mid + 1
+
+	# Everything is above the viewport → maybe scrolled way down
+	if first == -1: return Vector2i(-1, -1)
+
+	# Now use the official count as a cheap way to get a safe end
+	var visible_count := _rtl.get_visible_paragraph_count()
+
+	# Make sure the last is still within the total
+	var last := mini(n, first + visible_count)
+	return Vector2i(first, last)
+
+
+## Find the Range of lines that are currently visible.
+## Uses the vertical scroll bar for the document position,
+## and binary search.
+func get_visible_line_range() -> Vector2i:
+	var n := _rtl.get_line_count()
+	if n == 0 or not _rtl.is_visible_in_tree():
+		return Vector2i(-1, -1)
+
+	if not _rtl.is_finished(): return Vector2i(-1, -1)
+
+	# Current top Position
+	var top_y := _rtl.get_v_scroll_bar().value
+
+	# ── Binary search for first paragraph where para_top >= top_y ──
+	var left:int = 0
+	var right:int = n - 1
+	var first:int = -1
+	while left <= right:
+		var mid:int = (left + right) / 2
+		var y:float = _rtl.get_line_offset(mid)
+		if y >= top_y:
+			first = mid
+			right = mid - 1
+		else:
+			left = mid + 1
+
+	# Everything is above the viewport → maybe scrolled way down
+	if first == -1: return Vector2i(-1, -1)
+
+	# Now use the official count as a cheap way to get a safe end
+	var visible_count := _rtl.get_visible_line_count()
+
+	# Make sure the last is still within the total
+	var last := mini(n, first + visible_count)
+	return Vector2i(first, last)
+
 
 #                  ██████  ███████ ██████  ██    ██  ██████                    #
 #                  ██   ██ ██      ██   ██ ██    ██ ██                         #
@@ -847,17 +913,18 @@ func draw_debug_info() -> void:
 	var font := FontVariation.new()
 	font.base_font = ThemeDB.fallback_font
 	#font.variation_embolden = 1.0
-	var font_size : int = 20
+	var font_size:int = 20
 
 	var debug_position := Vector2(_rtl.size.x / 3,font.get_height(font_size))
 
-	var debug_parts : Array[String] = []
+	var debug_parts:Array[String] = []
 
 	if not debug_info.is_empty():
 		debug_parts.append("debug = " + JSON.stringify(debug_info, ' ', false))
+		debug_info = {}
 
-	if match_indices .size():
-		debug_parts.append("cur_line = %d" % match_indices [current_match_idx-1])
+	if match_indices.size():
+		debug_parts.append("cur_line = %d" % match_indices[current_match_idx-1])
 
 	debug_parts.append_array([
 		"pattern = " + search_pattern,
@@ -869,14 +936,14 @@ func draw_debug_info() -> void:
 
 
 	# merge the parts into one string.
-	var debug_text : String = "\n".join(debug_parts)
+	var debug_text:String = "\n".join(debug_parts)
 	draw_debug_text(debug_position, debug_text)
 
 
 func draw_debug2() -> void:
-	var position : Vector2
-	#var size : Vector2
-	var v_offset : float = 0
+	var position:Vector2
+	#var size:Vector2
+	var v_offset:float = 0
 
 	var h_color := Color(1,0,1,0.4)
 	var h_color_ol := Color(1,0,1,1)
@@ -888,13 +955,13 @@ func draw_debug2() -> void:
 	var l_color_ol := Color(0,1,0,1)
 
 	var font := _rtl.get_theme_default_font()
-	var font_size : int = _rtl.get_theme_default_font_size()
-	var f_size : Vector2 = font.get_string_size(" ", HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
+	var font_size:int = _rtl.get_theme_default_font_size()
+	var f_size:Vector2 = font.get_string_size(" ", HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
 
 	# the visible content rect is the bounding box of the rich text character elements.
-	var c_rect : Rect2 = _rtl_visible_content_rect
-	var c_pos : Vector2 = c_rect.position
-	#var c_size : Vector2 = c_rect.size
+	var c_rect:Rect2 = _rtl_visible_content_rect
+	var c_pos:Vector2 = c_rect.position
+	#var c_size:Vector2 = c_rect.size
 
 	position = Vector2(
 			c_pos.x,
@@ -906,7 +973,7 @@ func draw_debug2() -> void:
 	_rtl.draw_rect(highlight_rect, h_color_ol, false)
 
 	for p in _rtl.get_paragraph_count():
-		var p_offset : float = _rtl.get_paragraph_offset(p)
+		var p_offset:float = _rtl.get_paragraph_offset(p)
 		position = Vector2(
 			c_pos.x,
 			c_pos.y + p_offset - _rtl_scroll_value)
@@ -916,7 +983,7 @@ func draw_debug2() -> void:
 			_rtl.draw_rect(p_rect, p_color_ol, false)
 
 	for l in _rtl.get_line_count():
-		var l_offset : float = _rtl.get_line_offset(l)
+		var l_offset:float = _rtl.get_line_offset(l)
 		position = Vector2(
 			c_pos.x + (2 * f_size.x),
 			c_pos.y + l_offset - _rtl_scroll_value )
@@ -927,10 +994,10 @@ func draw_debug2() -> void:
 			_rtl.draw_rect(l_rect, l_color_ol, false)
 
 
-func draw_debug_text( position : Vector2, msg : String )-> void:
+func draw_debug_text( position:Vector2, msg:String )-> void:
 	#font.variation_embolden = 1.0
-	var ascent : float = _debug_font.get_ascent(_debug_font_size)
-	var descent : float = _debug_font.get_descent(_debug_font_size)
+	var ascent:float = _debug_font.get_ascent(_debug_font_size)
+	var descent:float = _debug_font.get_descent(_debug_font_size)
 	var margin := Vector2(descent, 0) + Vector2.ONE * 2
 
 	position += _rtl_content_margin
@@ -939,7 +1006,7 @@ func draw_debug_text( position : Vector2, msg : String )-> void:
 	var fg_color := Color.BEIGE
 	var ol_color := Color.BLACK
 
-	var bg_size : Vector2 = _debug_font.get_multiline_string_size(
+	var bg_size:Vector2 = _debug_font.get_multiline_string_size(
 		msg, HORIZONTAL_ALIGNMENT_LEFT, -1, _debug_font_size, -1)
 	bg_size += margin * 2
 
@@ -956,3 +1023,28 @@ func draw_debug_text( position : Vector2, msg : String )-> void:
 	_rtl.draw_multiline_string(
 		_debug_font, position, msg,
 		HORIZONTAL_ALIGNMENT_LEFT, -1, _debug_font_size, -1, fg_color)
+
+
+func                        __________TRACE__________              ()->void:pass
+# BEGIN_SNIPPET:trace
+# │ _____            _
+# │|_   _| _ __ _ __(_)_ _  __ _
+# │  | || '_/ _` / _| | ' \/ _` |
+# │  |_||_| \__,_\__|_|_||_\__, |
+# ╰────────────────────────|___/───
+@export var trace_enabled:bool = true
+
+func trace( args:Dictionary = {}, object:Object = self, stack:Array = [] ) -> void:
+	if not trace_enabled: return
+	if stack.is_empty(): stack = Core.get_stack2(1)
+	EneLog.trace( args, stack, object )
+
+
+func trace_detail( content:Variant, object:Object = null, stack:Array = [] ) -> void:
+	if not trace_enabled: return
+	if stack.is_empty(): stack = Core.get_stack2()
+	if content is Array:
+		var arr:Array = content
+		content = ' '.join(arr.map(str))
+	EneLog.printy( content, null, object, "", stack )
+# END_SNIPPET
