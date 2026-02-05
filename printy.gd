@@ -283,7 +283,8 @@ static func printy(
 	custom_stack: Array[Dictionary] = []
 ) -> void:
 
-	if not OS.has_feature('trace'): return
+	if not (Engine.is_editor_hint() \
+	or OS.has_feature('trace')): return
 
 	last_time = Time.get_ticks_usec()
 	last_frame = Engine.get_process_frames()
