@@ -1025,23 +1025,32 @@ func draw_debug_text( position:Vector2, msg:String )-> void:
 		HORIZONTAL_ALIGNMENT_LEFT, -1, _debug_font_size, -1, fg_color)
 
 
-func                        __________TRACE__________              ()->void:pass
 # BEGIN_SNIPPET:trace
+func                        __________TRACE__________              ()->void:pass
 # │ _____            _
 # │|_   _| _ __ _ __(_)_ _  __ _
 # │  | || '_/ _` / _| | ' \/ _` |
 # │  |_||_| \__,_\__|_|_||_\__, |
 # ╰────────────────────────|___/───
-@export var trace_enabled:bool = true
+@export_group('Trace')
+@export var trace_disabled:bool = false
+static var trace_class_disabled:bool = false
 
 func trace( args:Dictionary = {}, object:Object = self, stack:Array = [] ) -> void:
-	if not trace_enabled: return
+	if EneLog.disabled or trace_class_disabled or trace_disabled: return
 	if stack.is_empty(): stack = Core.get_stack2(1)
 	EneLog.trace( args, stack, object )
 
 
 func trace_detail( content:Variant, object:Object = null, stack:Array = [] ) -> void:
-	if not trace_enabled: return
+	if EneLog.disabled or trace_class_disabled or trace_disabled: return
+	if stack.is_empty(): stack = Core.get_stack2()
+	trace_lvl( EneLog.LOG_MAX, content, object, stack)
+
+
+func trace_lvl( lvl:int, content:Variant, object:Object = null, stack:Array = [] ) -> void:
+	if (EneLog.max_level < lvl) or EneLog.disabled  \
+			or trace_class_disabled or trace_disabled: return
 	if stack.is_empty(): stack = Core.get_stack2()
 	if content is Array:
 		var arr:Array = content

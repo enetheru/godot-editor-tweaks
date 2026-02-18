@@ -13,6 +13,18 @@ class_name EneLog
 const MAX_INT:int = 0x7FFF_FFFF_FFFF_FFFF
 const MIN_INT:int = -0x8000_0000_0000_0000
 
+enum {
+	LOG_NONE      = 0x00,
+	LOG_CRITICAL  = 0x01,
+	LOG_ERROR     = 0x02,
+	LOG_WARNING   = 0x04,
+	LOG_DEFAULT   = 0x08,
+	LOG_NOTICE    = 0x10,
+	LOG_DEBUG     = 0x20,
+	LOG_TRACE     = 0x40,
+	LOG_MAX       = 0x80
+}
+
 # ─────────────────────────────────────────────────────────────────────────────
 #  Per-call logging context
 # ─────────────────────────────────────────────────────────────────────────────
@@ -73,6 +85,7 @@ func                        ________PROPERTIES_______              ()->void:pass
 # ─────────────────────────────────────────────────────────────────────────────
 
 static var disabled:bool = false
+static var max_level:int = LOG_DEFAULT
 static var reset:bool = true
 static var top_level:bool = true
 
@@ -97,7 +110,7 @@ static var proc_id:int
 static var net_id:int
 static var net_string:String
 
-static var is_net_valid:Callable
+static var is_net_valid:Callable = net_is_not_valid
 static var get_net_id:Callable = get_zero_int
 static var get_net_string:Callable = get_empty_string
 
@@ -151,9 +164,21 @@ static var type_match:Array[Callable] = []
 func                        ________OVERRIDES________              ()->void:pass
 
 static func _static_init() -> void:
-	is_net_valid = func() -> bool: return false
-	get_net_id = get_zero_int
-	get_net_string = get_empty_string
+	var want_enable:bool = false
+
+	var user_args:Array = OS.get_cmdline_user_args()
+	for arg_idx:int in range( user_args.size() ):
+		var arg:String = user_args[arg_idx]
+		if arg == "--trace":
+			want_enable = true
+		if arg == "--log_level":
+			# FIXME, there is no error checking here.
+			var level:String = user_args[arg_idx + 1]
+			max_level = level.hex_to_int()
+
+	if want_enable: enable()
+	else: disable()
+
 	proc_id = OS.get_process_id()
 
 	styles_mutex.lock()
@@ -173,6 +198,8 @@ static func _static_init() -> void:
 		if stl.has(&"regex"):
 			stl[&"RegEx"] = RegEx.create_from_string(stl.regex)
 	styles_mutex.unlock()
+	if not disabled:
+		printy("Tracing is Enabled")
 
 
 #         ███    ███ ███████ ████████ ██   ██  ██████  ██████  ███████         #
@@ -239,14 +266,15 @@ static func print_end_frame_deferred(physics: bool = false) -> void:
 	reset = false
 
 
-static func get_zero_int() -> int: return 0
+static func net_is_not_valid() -> int: return false
 
+static func get_zero_int() -> int: return 0
 
 static func get_empty_string() -> String: return ""
 
 
 static func trace(args: Dictionary = {}, stack: Array = [], object: Object = null) -> void:
-	if not OS.has_feature('trace'): return
+	if disabled: return
 	if stack.is_empty():
 		stack = get_stack()
 		stack.pop_front()
@@ -254,18 +282,36 @@ static func trace(args: Dictionary = {}, stack: Array = [], object: Object = nul
 	# transform args dictionary values depending on their type.
 	var args3:String = ', '.join(args.keys().map(func(key:Variant) -> String:
 		var value:Variant = args.get(key)
+		var type_val:int = typeof(value)
 		if value is Resource:
 			return "%s=%s" % [ key, Core.link(
 					value.resource_path,
 					value.resource_path.get_file())]
 		if value is Callable:
 			return "%s=%s" % [key, value.get_method()]
+		if value is Dictionary:
+			if value.is_typed():
+				#TODO Future get the typenames of a typed Dicionary
+				return "%s=T[%s]" % [key, value.size()]
+				# var type:Variant = value.get_typed_builtin()
+				# int get_typed_key_builtin()
+				# StringName get_typed_key_class_name()
+				# Variant get_typed_key_script()
+				# int get_typed_value_builtin()
+				# StringName get_typed_value_class_name()
+				# Variant get_typed_value_script()
+			return "%s=Dictionary[%s]" % [key, value.size()]
 		if value is Array:
 			if value.is_typed():
 				#TODO Future get the typename of a typed array
 				return "%s=T[%s]" % [key, value.size()]
 				#var type:Variant = value.get_typed_builtin()
 			return "%s=Array[%s]" % [key, value.size()]
+
+		# Packed Array Types
+		if type_val >= 29 and type_val <=38:
+			# TODO get the type.
+			return "%s=PackedArrayType[%s]" % [key, value.size()]
 		return str(key) + "=" + str(value)
 		))
 	var parts = [
@@ -276,15 +322,12 @@ static func trace(args: Dictionary = {}, stack: Array = [], object: Object = nul
 
 
 static func printy(
-	content: Variant,
-	args_in: Variant = null,
-	object: Object = null,
-	indent: String = "",
-	custom_stack: Array[Dictionary] = []
-) -> void:
-
-	if not (Engine.is_editor_hint() \
-	or OS.has_feature('trace')): return
+			content: Variant,
+			args_in: Variant = null,
+			object: Object = null,
+			indent: String = "",
+			custom_stack: Array[Dictionary] = [] ) -> void:
+	if disabled: return
 
 	last_time = Time.get_ticks_usec()
 	last_frame = Engine.get_process_frames()
@@ -436,7 +479,7 @@ static func _apply_thread_and_proc_info(ctx: LogCtx) -> void:
 
 static func _apply_network_info(ctx: LogCtx) -> void:
 	var rpc_string := ""
-	if is_instance_valid(is_net_valid) and is_net_valid.call():
+	if is_net_valid.call():
 		var _net_id := get_net_id.call()
 		if net_id != _net_id:
 			ctx.newline = true
@@ -568,15 +611,19 @@ static func _finalize_formatting(ctx: LogCtx) -> void:
 			ctx.msg_icon = "[color={msg_color}]{msg_icon}[/color]".format(ctx)
 
 
+# TODO make this a formatting option.
 ## Wraps long argument blocks, indenting continuations right after the flow symbols
-static func _wrap_long_args(raw_line: String, max_width: int = 100, continuation_offset: int = 1) -> Array[String]:
+static func _wrap_long_args(raw_line: String, max_width: int = 100,
+			continuation_offset: int = 1) -> Array[String]:
+	# Fast early out.
+	if raw_line.length() <= max_width: return [raw_line]
+
 	var result: Array[String] = []
 
-	# Find where the arguments start (after function name and {)
-	var brace_pos = raw_line.find("{")
-	if brace_pos == -1 or raw_line.length() <= max_width:
-		result.append(raw_line)
-		return result
+	# Find where the arguments start (after function name and ()
+	# TODO extend the detection for the intial break position.
+	var brace_pos = raw_line.find("(")
+	if brace_pos == -1: brace_pos = max_width
 
 	# Prefix = everything up to and including {
 	var prefix = raw_line.substr(0, brace_pos + 1)
@@ -598,6 +645,9 @@ static func _wrap_long_args(raw_line: String, max_width: int = 100, continuation
 	var current_raw = prefix
 	var wrapped_args: Array[String] = []
 
+	# TODO this was initially made for splitting dictionaries, but if i want
+	# to extend it to split every long line then i need the chunking
+	# to respect more things.
 	# Split args on ", " but respect nested {} and quotes
 	var chunks = _split_args_respecting_structure(args)
 
@@ -637,15 +687,17 @@ static func _split_args_respecting_structure(s: String) -> PackedStringArray:
 		var c = s[i]
 		current += c
 
+		# look for unescaped quoations, and toggle 'in_quote'
 		if c == '"' and s[i-1] != "\\":
 			in_quote = !in_quote
+
 		elif not in_quote:
 			if c == "{":
 				depth += 1
 			elif c == "}":
 				depth -= 1
-			elif c == "," and depth == 0:
-				result.append(current.substr(0, current.length() - 1).strip_edges())
+			elif c in [',','.',' '] and depth == 0:
+				result.append(current.substr(0, current.length()).strip_edges())
 				current = ""
 
 		i += 1
@@ -675,57 +727,48 @@ static func _print_normal(ctx: LogCtx) -> void:
 		ctx.call_site,
 		ctx.header,
 		ctx.msg ])
-	var wrapped_lines = _wrap_long_args(mid, 100, 0)
+	# TODO I need to figure out how i can get the width of the output console.
+	var wrapped_lines = _wrap_long_args(mid, 80, 0)
 
 	for i in wrapped_lines.size():
 		if i == 0:
 			print_rich(ctx.left, wrapped_lines[i])
 			continue
-		print_rich(ctx.left, " ".repeat(ctx.flow.length()-1), '|  →  ',  wrapped_lines[i])
+
+		# HACK, split on newlines
+		var line:String = wrapped_lines[i]
+		var splits:Array = line.split('\n')
+		for split:String in splits:
+			print_rich(ctx.left, " ".repeat(ctx.flow.length()-1), '|  →  ',  wrapped_lines[i])
 
 	# Line After
 	if not ctx.after.is_empty(): print_rich(ctx.after)
 
 
 static func _print_as_error(ctx: LogCtx) -> void:
-	var mid:String = ''.join([
-		ctx.msg_icon,
-		ctx.flow,
-		ctx.header,
-		ctx.msg ])
-
-	printerr(strip_bbcode(ctx.left), strip_bbcode(mid))
-
-	print_rich(ctx.left, "".join([
-		ctx.msg_icon, ctx.flow, ctx.header,
+	print_rich("".join([
 		"[pulse freq=2 color=#FFFFFF70]",
+		ctx.left, ctx.msg_icon, ctx.flow, ctx.call_site, ctx.header,
 		"[color=red]", strip_bbcode(ctx.msg), "[/color]",
         "[/pulse]"
 	]))
-
-	for frame in ctx.stack:
-		print_rich("".join([ctx.left, "\t[color=salmon][url={source}:{line}]{source}:{line}[/url]:{function}[/color]".format(frame)]))
+	var stack:Array = ctx.stack
+	for idx:int in range(1,stack.size()):
+		var frame:Dictionary = stack[idx]
+		print_rich("[color=salmon][url={source}:{line}]{source}:{line}[/url]:{function}[/color]".format(frame))
 
 
 static func _print_as_warning(ctx: LogCtx) -> void:
-	var mid:String = ''.join([
-		ctx.msg_icon,
-		ctx.flow,
-		ctx.header,
-		ctx.msg ])
-
-	print_debug(strip_bbcode(ctx.left), strip_bbcode(mid))
-
-	print_rich(ctx.left, "".join([
-		ctx.msg_icon,
-		ctx.flow,
-		ctx.header,
+	print_rich("".join([
 		"[pulse freq=2 color=gold]",
+		ctx.left, ctx.msg_icon, ctx.flow, ctx.call_site, ctx.header,
 		"[color=yellow]", strip_bbcode(ctx.msg), "[/color]",
-		"[/pulse]"]))
-
-	for frame in ctx.stack:
-		print_rich("".join([ctx.left, "\t[url={source}:{line}]{source}:{line}[/url]:{function}".format(frame)]))
+        "[/pulse]"
+	]))
+	var stack:Array = ctx.stack
+	for idx:int in range(1,stack.size()):
+		var frame:Dictionary = stack[idx]
+		print_rich("[url={source}:{line}]{source}:{line}[/url]:{function}".format(frame))
 
 
 static func _save_stack(stack: Array) -> void:
