@@ -7,27 +7,13 @@ const Self = preload('uid://setvleg6sni3')
 # loading, that way we might be able to devise a way to automatically clone
 # and update plugins like the vim lazy codebase does.
 
+func                        _________IMPORTS_________              ()->void:pass
+
+
 const SettingsHelper = preload('uid://b0mfrmvvxnr01')
 var settings_mgr : SettingsHelper
 
 const EditorLog = preload('uid://bqnxqo33qkevi')
-
-# │ _____            _
-# │|_   _| _ __ _ __(_)_ _  __ _
-# │  | || '_/ _` / _| | ' \/ _` |
-# │  |_||_| \__,_\__|_|_||_\__, |
-# ╰────────────────────────|___/───
-var trace_enabled : bool = true
-
-func trace(args : Dictionary = {}) -> void:
-	if not trace_enabled : return
-	var stack := get_stack(); stack.pop_front()
-	EneLog.trace(args, stack, self)
-
-
-func trace_detail(content : Variant, object : Object = null) -> void:
-	if not trace_enabled : return
-	EneLog.printy(content, null, object, "", get_stack())
 
 
 # ██████  ██████   ██████  ██████  ███████ ██████  ████████ ██ ███████ ███████ #
@@ -356,6 +342,56 @@ func editorlog_url_links_disabled() -> void:
 		output_rtl.meta_clicked.connect( c.get('callable') )
 
 
+func                        __RichPaste______________              ()->void:pass
+#region RichPaste
+#MARK: RichPaste
+
+## │ ___ _    _    ___         _          [br]
+## │| _ (_)__| |_ | _ \__ _ __| |_ ___    [br]
+## │|   / / _| ' \|  _/ _` (_-<  _/ -_)   [br]
+## │|_|_\_\__|_||_|_| \__,_/__/\__\___|   [br]
+## ╰───────────────────────────────────── [br]
+##
+## TODO Change this to DocPaste
+## Because i have to remove newlines and comment strings
+## CONTEXT_SLOT_SCRIPT_EDITOR_CODE[br]
+## Context menu of Script editor's code editor.
+@export_custom( PROPERTY_HINT_NONE, "",
+	PROPERTY_USAGE_EDITOR_BASIC_SETTING | PROPERTY_USAGE_GROUP)
+var editorlog_rich_paste : bool = false :
+	set = editorlog_rich_paste_toggle
+
+class MyCodeEditMenu extends EditorContextMenuPlugin:
+	# _popup_menu() will be called with the path to the CodeEdit node.
+	# The option callback will receive reference to that node.
+	func _popup_menu( paths:PackedStringArray ):
+		var code_edit:CodeEdit = Engine.get_main_loop().root.get_node(paths[0]);
+		add_context_menu_item("rich_paste",
+			func(thing):
+				## how to manage the newline business?
+				var selected_text:String = code_edit.get_selected_text()
+				print_rich(selected_text.replace_char(ord('\n'), ord(' '))))
+
+
+var editorlog_rich_paste_class:MyCodeEditMenu
+
+func editorlog_rich_paste_toggle( toggled_on : bool ) -> void:
+	trace()
+	editorlog_ligatures = toggled_on
+	if toggled_on:
+		trace_detail("Enable EditorLog Rich Paste")
+		if not is_instance_valid(editorlog_rich_paste_class):
+			editorlog_rich_paste_class = MyCodeEditMenu.new()
+		add_context_menu_plugin(
+			EditorContextMenuPlugin.ContextMenuSlot.CONTEXT_SLOT_SCRIPT_EDITOR_CODE,
+			editorlog_rich_paste_class )
+	else:
+		if is_instance_valid(editorlog_rich_paste_class):
+			trace_detail("Disable EditorLog Rich Paste")
+			remove_context_menu_plugin( editorlog_rich_paste_class )
+
+#endregion RichPaste
+
 #                    ██  ██████  ██████  ███    ██ ███████                     #
 #                    ██ ██      ██    ██ ████   ██ ██                          #
 #                    ██ ██      ██    ██ ██ ██  ██ ███████                     #
@@ -436,3 +472,37 @@ static func dump_colours() -> void:
 				color_name
 				]))
 		print_rich("\n".join(lines)); lines = []
+
+
+# BEGIN_SNIPPET:trace
+func                        __________TRACE__________              ()->void:pass
+# │ _____            _
+# │|_   _| _ __ _ __(_)_ _  __ _
+# │  | || '_/ _` / _| | ' \/ _` |
+# │  |_||_| \__,_\__|_|_||_\__, |
+# ╰────────────────────────|___/───
+@export_group('Trace')
+@export var trace_disabled:bool = false
+static var trace_class_disabled:bool = false
+
+func trace( args:Dictionary = {}, object:Object = self, stack:Array = [] ) -> void:
+	if EneLog.disabled or trace_class_disabled or trace_disabled: return
+	if stack.is_empty(): stack = Core.get_stack2(1)
+	EneLog.trace( args, stack, object )
+
+
+func trace_detail( content:Variant, object:Object = null, stack:Array = [] ) -> void:
+	if EneLog.disabled or trace_class_disabled or trace_disabled: return
+	if stack.is_empty(): stack = Core.get_stack2()
+	trace_lvl( EneLog.LOG_MAX, content, object, stack)
+
+
+func trace_lvl( lvl:int, content:Variant, object:Object = null, stack:Array = [] ) -> void:
+	if (EneLog.max_level < lvl) or EneLog.disabled  \
+			or trace_class_disabled or trace_disabled: return
+	if stack.is_empty(): stack = Core.get_stack2()
+	if content is Array:
+		var arr:Array = content
+		content = ' '.join(arr.map(str))
+	EneLog.printy( content, null, object, "", stack )
+# END_SNIPPET

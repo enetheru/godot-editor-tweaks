@@ -85,7 +85,7 @@ func                        ________PROPERTIES_______              ()->void:pass
 # ─────────────────────────────────────────────────────────────────────────────
 
 static var disabled:bool = false
-static var max_level:int = LOG_DEFAULT
+static var max_level:int = LOG_MAX
 static var reset:bool = true
 static var top_level:bool = true
 
@@ -171,10 +171,12 @@ static func _static_init() -> void:
 		var arg:String = user_args[arg_idx]
 		if arg == "--trace":
 			want_enable = true
-		if arg == "--log_level":
-			# FIXME, there is no error checking here.
-			var level:String = user_args[arg_idx + 1]
-			max_level = level.hex_to_int()
+			var next_idx:int = arg_idx + 1
+			if next_idx >= user_args.size(): continue
+			var level:String = user_args[next_idx]
+			if level.is_valid_int():
+				max_level = level.hex_to_int()
+				printy("printy log max set to: " + level)
 
 	if want_enable: enable()
 	else: disable()
