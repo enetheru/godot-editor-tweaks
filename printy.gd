@@ -1,14 +1,16 @@
 @tool
 class_name EneLog
-# │           _     _
-# │  _ __ _ _(_)_ _| |_ _  _
-# │ | '_ \ '_| | ' \  _| || |
-# │ | .__/_| |_|_||_\__|\_, |
-# ╰─|_|─────────────────|__/-<<
-# Logging utility for pretty printing to output console
-
-## TODO Investigate using  WorkerThreadPool.get_caller_task_id() to
-## identify whether we are in a thread and what its ID is.
+## │           _     _          [br]
+## │  _ __ _ _(_)_ _| |_ _  _   [br]
+## │ | '_ \ '_| | ' \  _| || |  [br]
+## │ | .__/_| |_|_||_\__|\_, |  [br]
+## ╰─|_|─────────────────|__/-<<[br]
+## Logging utility for pretty printing to output console
+##
+## [color=goldenrod]TODO[/color]: Investigate using  WorkerThreadPool.get_caller_task_id() to[br]
+## [b]      identify whether we are in a thread and what its ID is.[br]
+## [color=goldenrod]TODO[/color]: Consider using hint bbcode to add more detail[br]
+## [b]      eg.[hint="{tooltip text displayed on hover}"]{text}[/hint][br]
 
 const MAX_INT:int = 0x7FFF_FFFF_FFFF_FFFF
 const MIN_INT:int = -0x8000_0000_0000_0000
@@ -274,6 +276,93 @@ static func get_zero_int() -> int: return 0
 
 static func get_empty_string() -> String: return ""
 
+# args dictionary values depending on their type.
+static func format_key_value(key:Variant, value:Variant) -> String:
+	var type_val:int = typeof(value)
+	match type_val:
+		TYPE_NIL, TYPE_BOOL:
+			return "%s=[color=ff7085]%s[/color]" % [key, value]
+		TYPE_INT, TYPE_FLOAT:
+			return "%s=[color=a1ffe0]%s[/color]" % [key, value]
+		TYPE_STRING:
+			# TODO truncate and ellipsis
+			return "%s=[color=ffeda1]%s[/color]" % [key, value]
+		#TYPE_VECTOR2: pass # = 5
+		#TYPE_VECTOR2I: pass # = 6
+		#TYPE_RECT2: pass # = 7
+		#TYPE_RECT2I: pass # = 8
+		#TYPE_VECTOR3: pass # = 9
+		#TYPE_VECTOR3I: pass # = 10
+		#TYPE_TRANSFORM2D: pass # = 11
+		#TYPE_VECTOR4: pass # = 12
+		#TYPE_VECTOR4I: pass # = 13
+		#TYPE_PLANE: pass # = 14
+		#TYPE_QUATERNION: pass # = 15
+		#TYPE_AABB: pass # = 16
+		#TYPE_BASIS: pass # = 17
+		#TYPE_TRANSFORM3D: pass # = 18
+		#TYPE_PROJECTION: pass # = 19
+		#TYPE_COLOR: pass # = 20
+		TYPE_STRING_NAME:
+			return "%s=[color=ffc2a6]%s[/color]" % [key, value]
+		TYPE_NODE_PATH:
+			return "%s=[color=b8c47d]%s[/color]" % [key, value]
+		#TYPE_RID: pass # = 23
+		TYPE_OBJECT: pass # = 24
+		TYPE_CALLABLE:
+			return "%s=%s" % [key, value.get_method()]
+		#TYPE_SIGNAL: pass # = 26
+		TYPE_DICTIONARY:
+			if not value.is_typed():
+				return "%s=dict{%s}" % [key, value.size()]
+			var kt:String = value.get_typed_key_class_name()
+			if kt.is_empty(): kt = type_string(value.get_typed_key_builtin())
+			var vt:String = value.get_typed_value_class_name()
+			if vt.is_empty(): vt = type_string(value.get_typed_value_builtin())
+			return "%s=dict<%s,%s>{%s}" % [key,kt,vt, value.size()]
+		TYPE_ARRAY:
+			if not value.is_typed():
+				return "%s=Array[%s]" % [key, value.size()]
+			var tn:StringName = value.get_typed_class_name()
+			if tn.is_empty(): tn = type_string(value.get_typed_builtin())
+			return "%s=Array<%s>[%s]" % [key, tn , value.size()]
+		TYPE_PACKED_BYTE_ARRAY:
+			return "%s=bytes[%s]" % [key, value.size()]
+		TYPE_PACKED_INT32_ARRAY:
+			return "%s=int[%s]" % [key, value.size()]
+		TYPE_PACKED_INT64_ARRAY:
+			return "%s=int64[%s]" % [key, value.size()]
+		TYPE_PACKED_FLOAT32_ARRAY:
+			return "%s=float[%s]" % [key, value.size()]
+		TYPE_PACKED_FLOAT64_ARRAY:
+			return "%s=double[%s]" % [key, value.size()]
+		TYPE_PACKED_STRING_ARRAY:
+			return "%s=string[%s]" % [key, value.size()]
+		TYPE_PACKED_VECTOR2_ARRAY:
+			return "%s=vec2[%s]" % [key, value.size()]
+		TYPE_PACKED_VECTOR3_ARRAY:
+			return "%s=vec3[%s]" % [key, value.size()]
+		TYPE_PACKED_COLOR_ARRAY:
+			return "%s=color[%s]" % [key, value.size()]
+		TYPE_PACKED_VECTOR4_ARRAY:
+			return "%s=vec4[%s]" % [key, value.size()]
+		_: return str(key) + "=" + str(value)
+
+	# Only Object falls through.
+	if value is Resource:
+		return "%s=%s" % [ key, Core.link(
+				value.resource_path,
+				value.resource_path.get_file())]
+	if value is Node:
+		return str(key) + "=" + value.name
+
+	if value is Object:
+		var name:Variant = value.get(&'name')
+		if name != null:
+			return str(key) + "=" + value.name
+		return str(key) + "=" + value.get_class()
+	return str(key) + "=" + str(value)
+
 
 static func trace(args: Dictionary = {}, stack: Array = [], object: Object = null) -> void:
 	if disabled: return
@@ -281,44 +370,14 @@ static func trace(args: Dictionary = {}, stack: Array = [], object: Object = nul
 		stack = get_stack()
 		stack.pop_front()
 	var call_site = stack.front()
-	# transform args dictionary values depending on their type.
-	var args3:String = ', '.join(args.keys().map(func(key:Variant) -> String:
-		var value:Variant = args.get(key)
-		var type_val:int = typeof(value)
-		if value is Resource:
-			return "%s=%s" % [ key, Core.link(
-					value.resource_path,
-					value.resource_path.get_file())]
-		if value is Callable:
-			return "%s=%s" % [key, value.get_method()]
-		if value is Dictionary:
-			if value.is_typed():
-				#TODO Future get the typenames of a typed Dicionary
-				return "%s=T[%s]" % [key, value.size()]
-				# var type:Variant = value.get_typed_builtin()
-				# int get_typed_key_builtin()
-				# StringName get_typed_key_class_name()
-				# Variant get_typed_key_script()
-				# int get_typed_value_builtin()
-				# StringName get_typed_value_class_name()
-				# Variant get_typed_value_script()
-			return "%s=Dictionary[%s]" % [key, value.size()]
-		if value is Array:
-			if value.is_typed():
-				#TODO Future get the typename of a typed array
-				return "%s=T[%s]" % [key, value.size()]
-				#var type:Variant = value.get_typed_builtin()
-			return "%s=Array[%s]" % [key, value.size()]
 
-		# Packed Array Types
-		if type_val >= 29 and type_val <=38:
-			# TODO get the type.
-			return "%s=PackedArrayType[%s]" % [key, value.size()]
-		return str(key) + "=" + str(value)
-		))
+	var args3:PackedStringArray = args.keys().map(
+		func(key:Variant) -> String:
+			return format_key_value(key, args.get(key)))
+
 	var parts = [
-		"[url='{source}:{line}']{function}[/url]".format(call_site),
-		"(", args3, ")"
+		"[url='{source}:{line}'][color=57b3ff]{function}[/color][/url]".format(call_site),
+		"(", ', '.join(args3), ")"
 	]
 	printy("".join(parts), [], object, "", stack)
 
@@ -347,6 +406,7 @@ static func printy(
 	_apply_network_info(ctx)
 	_apply_object_formatting(ctx)
 	_apply_style(ctx)
+	# TODO put content formatting in here for things like arrays and dicts.
 
 	_compute_stack_distance(ctx)
 	_finalize_formatting(ctx)
@@ -614,99 +674,221 @@ static func _finalize_formatting(ctx: LogCtx) -> void:
 
 
 # TODO make this a formatting option.
-## Wraps long argument blocks, indenting continuations right after the flow symbols
-static func _wrap_long_args(raw_line: String, max_width: int = 100,
-			continuation_offset: int = 1) -> Array[String]:
-	# Fast early out.
-	if raw_line.length() <= max_width: return [raw_line]
-
+## Reflows documentation text according to specified rules.
+##
+## - Preserves the first line exactly, where first line ends at the first top-level \n (not inside BBCode).
+## - Treats BBCode blocks (with nesting) as atomic: does not modify them or their content.
+## - Preserves top-level newlines (treats them as paragraph breaks).
+## - Reflows only top-level plain text segments longer than max_width (visible length), splitting on spaces/commas etc.
+## - Continuation lines indented by continuation_indent spaces.
+##
+## Returns array of lines (without trailing \n).
+static func reflow_text(
+			text: String,
+			max_width: int = 88,
+			continuation_indent: int = 4) -> Array[String]:
 	var result: Array[String] = []
 
-	# Find where the arguments start (after function name and ()
-	# TODO extend the detection for the intial break position.
-	var brace_pos = raw_line.find("(")
-	if brace_pos == -1: brace_pos = max_width
-
-	# Prefix = everything up to and including {
-	var prefix = raw_line.substr(0, brace_pos + 1)
-
-	# Arguments part
-	var args = raw_line.substr(brace_pos + 1)
-
-	# Estimate visible prefix length (strip BBCode for width calculation)
-	var visible_prefix = strip_bbcode(prefix)
-	var prefix_visible_len = visible_prefix.length()
-
-	# If whole line fits, no wrap
-	if prefix_visible_len + strip_bbcode(args).length() <= max_width:
-		result.append(raw_line)
+	# Find end of first line: first top-level \n
+	var first_line_end := _find_first_top_level_newline(text)
+	if first_line_end == -1:
+		# No \n at all: whole text is first line, preserve
+		result.append(text)
 		return result
 
-	# Build first line (prefix + as much args as fits)
-	var current_visible = prefix_visible_len
-	var current_raw = prefix
-	var wrapped_args: Array[String] = []
+	var first_line := text.substr(0, first_line_end)
+	result.append(first_line)
 
-	# TODO this was initially made for splitting dictionaries, but if i want
-	# to extend it to split every long line then i need the chunking
-	# to respect more things.
-	# Split args on ", " but respect nested {} and quotes
-	var chunks = _split_args_respecting_structure(args)
+	# Remaining text after first \n
+	var remaining := text.substr(first_line_end + 1)
+	if remaining.is_empty():
+		return result
 
-	for chunk in chunks:
-		var chunk_visible = strip_bbcode(chunk)
-		var added_visible = chunk_visible.length() + (1 if wrapped_args.size() > 0 else 0)  # space or comma
+	# Parse remaining into top-level elements and reflow plain text
+	var i: int = 0
+	var n: int = remaining.length()
 
-		if current_visible + added_visible > max_width:
-			# Flush current line
-			result.append(current_raw)
-			# Start continuation: indent to end of previous indent + flow + offset
-			current_raw = " ".repeat(prefix_visible_len - visible_prefix.length() + continuation_offset) + chunk
-			current_visible = continuation_offset + chunk_visible.length()
-			wrapped_args.append(current_raw)
-		else:
-			if wrapped_args.size() > 0:
-				current_raw += " "
-			current_raw += chunk
-			current_visible += added_visible
+	while i < n:
+		# Skip whitespace if not preserving exactly, but since top-level, keep for indent?
+		# For now, process as-is
 
-	# Last chunk
-	if current_raw != prefix:
-		result.append(current_raw)
+		if remaining[i] == '[':
+			# Possible BBCode start
+			var block_end := _find_bbcode_block_end(remaining, i)
+			if block_end > i:
+				# Valid block: copy whole untouched
+				var block := remaining.substr(i, block_end - i + 1)
+				# Since blocks can have \n, split and append each line
+				var block_lines := block.split("\n")
+				for line in block_lines:
+					result.append(line)
+				i = block_end + 1
+				continue
+
+		# Start of plain text paragraph
+		# Collect until next top-level [ or end
+		var para_start := i
+		var para_end := n
+		while i < n:
+			if remaining[i] == '\n':
+				# Top-level \n: end of paragraph
+				para_end = i
+				break
+			elif remaining[i] == '[':
+				var block_end = _find_bbcode_block_end(remaining, i)
+				if block_end > i:
+					para_end = i
+					break
+				else:
+					i += 1
+					continue
+			i += 1
+
+		if para_start < para_end:
+			var paragraph := remaining.substr(para_start, para_end - para_start)
+			var reflowed := _reflow_plain_paragraph(paragraph, max_width, continuation_indent)
+			for rline in reflowed:
+				result.append(rline)
+
+		# If \n, append empty line? No: split("\n") would handle, but since we stopped at \n
+		if i < n and remaining[i] == '\n':
+			#result.append("")  # preserve the blank line / paragraph break
+			i += 1
 
 	return result
 
 
-## Helper: split ", " but don't break inside {} or quotes
-static func _split_args_respecting_structure(s: String) -> PackedStringArray:
-	var result: PackedStringArray = []
-	var current = ""
-	var depth = 0
-	var in_quote = false
-	var i = 0
+## Finds position of first top-level \n (not inside BBCode).
+## Returns -1 if none.
+static func _find_first_top_level_newline(s: String) -> int:
+	var i: int = 0
+	var n: int = s.length()
+	var depth: int = 0  # BBCode nesting depth
+
+	while i < n:
+		if s[i] == '\n' and depth == 0:
+			return i
+		elif s[i] == '[':
+			# Check if opening or closing
+			if i + 1 < n and s[i+1] == '/':
+				# Closing: decrease depth if matching
+				var close_end := s.find(']', i + 2)
+				if close_end != -1:
+					depth = max(0, depth - 1)
+					i = close_end + 1
+					continue
+			else:
+				# Opening: increase depth
+				var open_end := s.find(']', i + 1)
+				if open_end != -1:
+					depth += 1
+					i = open_end + 1
+					continue
+			# Malformed: skip [
+			i += 1
+		else:
+			i += 1
+
+	return -1
+
+
+## Given start at [, finds the end ] of the matching [/tag], handling nesting.
+## Returns -1 if invalid or unmatched.
+static func _find_bbcode_block_end(s: String, start: int) -> int:
+	if s[start] != '[' or start + 1 >= s.length():
+		return -1
+
+	# Find end of opening tag
+	var open_close := s.find(']', start + 1)
+	if open_close == -1:
+		return -1
+
+	var tag_content := s.substr(start + 1, open_close - start - 1).strip_edges()
+	if tag_content.begins_with('/'):
+		return -1  # not opening
+
+	var tag_name := tag_content.split(' ')[0].split('=')[0]  # rough
+	var close_tag := "[/" + tag_name + "]"
+
+	var i := open_close + 1
+	var depth := 1  # start with 1 for the outer
 
 	while i < s.length():
-		var c = s[i]
-		current += c
+		if s[i] == '[':
+			if i + 1 < s.length() and s[i+1] == '/':
+				# Possible close
+				var maybe_close_end := s.find(']', i + 2)
+				if maybe_close_end != -1:
+					var maybe_close := s.substr(i, maybe_close_end - i + 1)
+					if maybe_close == close_tag:
+						depth -= 1
+						if depth == 0:
+							return maybe_close_end
+					i = maybe_close_end + 1
+					continue
+			else:
+				# Possible nested open
+				var nested_open_end := s.find(']', i + 1)
+				if nested_open_end != -1:
+					var nested_tag := s.substr(i + 1, nested_open_end - i - 1).strip_edges().split(' ')[0].split('=')[0]
+					if nested_tag == tag_name:
+						depth += 1
+					i = nested_open_end + 1
+					continue
+			i += 1
+		else:
+			i += 1
 
-		# look for unescaped quoations, and toggle 'in_quote'
-		if c == '"' and s[i-1] != "\\":
-			in_quote = !in_quote
+	return -1  # unmatched
 
-		elif not in_quote:
-			if c == "{":
-				depth += 1
-			elif c == "}":
-				depth -= 1
-			elif c in [',','.',' '] and depth == 0:
-				result.append(current.substr(0, current.length()).strip_edges())
-				current = ""
 
+## Reflows a plain text paragraph (no [ ] assumed).
+## Splits on spaces, commas, etc.
+static func _reflow_plain_paragraph(text: String, max_width: int, continuation_indent: int) -> Array[String]:
+	var lines: Array[String] = []
+	var current_line := ""
+	var current_len := 0
+
+	var words := _split_plain_text(text)  # split on spaces/commas etc., keeping delimiters?
+
+	for word in words:
+		var word_len := word.length()  # since plain, visible = len
+		if current_len + word_len > max_width and not current_line.is_empty():
+			lines.append(current_line)
+			current_line = " ".repeat(continuation_indent) + word
+			current_len = continuation_indent + word_len
+		else:
+			if not current_line.is_empty() and word != "," and word != "." :  # rough
+				current_line += " "
+				current_len += 1
+			current_line += word
+			current_len += word_len
+
+	if not current_line.is_empty():
+		lines.append(current_line)
+
+	return lines
+
+
+## Splits plain text on delimiters for wrapping (spaces, commas, etc.).
+## Returns array of tokens (words + delimiters?).
+static func _split_plain_text(s: String) -> Array[String]:
+	var result: Array[String] = []
+	var current := ""
+	var i := 0
+	while i < s.length():
+		var c := s[i]
+		if c in " \t,;\n":  # delimiters to break on
+			if not current.is_empty():
+				result.append(current)
+			if c != " " and c != "\t":  # keep non-ws delimiters?
+				result.append(c)
+			current = ""
+		else:
+			current += c
 		i += 1
-
-	if current.strip_edges():
-		result.append(current.strip_edges())
-
+	if not current.is_empty():
+		result.append(current)
 	return result
 
 
@@ -727,21 +909,20 @@ static func _print_normal(ctx: LogCtx) -> void:
 		ctx.msg_icon,
 		ctx.flow,
 		ctx.call_site,
-		ctx.header,
-		ctx.msg ])
+		ctx.header])
 	# TODO I need to figure out how i can get the width of the output console.
-	var wrapped_lines = _wrap_long_args(mid, 80, 0)
+
+	var wrapped_lines = reflow_text(ctx.msg, 80, 0)
+	var reflow_left:String = strip_bbcode(ctx.left)
+	for i in reflow_left.length() -1:
+		reflow_left[i] = ' '
 
 	for i in wrapped_lines.size():
 		if i == 0:
-			print_rich(ctx.left, wrapped_lines[i])
+			print_rich(ctx.left, mid, wrapped_lines[i])
 			continue
 
-		# HACK, split on newlines
-		var line:String = wrapped_lines[i]
-		var splits:Array = line.split('\n')
-		for split:String in splits:
-			print_rich(ctx.left, " ".repeat(ctx.flow.length()-1), '|  →  ',  wrapped_lines[i])
+		print_rich(reflow_left, " ".repeat(ctx.flow.length()-1), '    ',  wrapped_lines[i])
 
 	# Line After
 	if not ctx.after.is_empty(): print_rich(ctx.after)
