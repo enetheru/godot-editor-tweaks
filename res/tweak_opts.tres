@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="TweakOptions" format=3 uid="uid://dhpivfj5v8omf"]
+
+[ext_resource type="Script" uid="uid://bknlnwba5l18x" path="res://addons/enetheru.editor-tweaks/scripts/tweak_options.gd" id="1_k2mri"]
+
+[resource]
+script = ExtResource("1_k2mri")
+debug = true
+experimental = true
+verbosity = 127
+metadata/_custom_type_script = "uid://bknlnwba5l18x"

@@ -27,6 +27,8 @@ enum {
 	LOG_MAX       = 0x80
 }
 
+static var _verbosity:int = LOG_DEFAULT
+
 # ─────────────────────────────────────────────────────────────────────────────
 #  Per-call logging context
 # ─────────────────────────────────────────────────────────────────────────────
@@ -151,6 +153,17 @@ static var styles:Dictionary[StringName, Dictionary] = {
 	&'FALSE':{&'icon':" ", &'color':"tomato"},
 }
 
+
+# log levels
+static var _es := EditorInterface.get_editor_settings()
+static var color_notice_critical:Color = _es.get_setting("text_editor/theme/highlighting/comment_markers/critical_color")
+static var color_notice_error:Color = _es.get_setting("text_editor/theme/highlighting/comment_markers/critical_color")
+static var color_notice_warning:Color = _es.get_setting("text_editor/theme/highlighting/comment_markers/warning_color")
+static var color_notice_notice:Color = _es.get_setting("text_editor/theme/highlighting/comment_markers/notice_color")
+static var color_notice_debug:Color = _es.get_setting("text_editor/theme/highlighting/doc_comment_color")
+static var color_notice_trace:Color = _es.get_setting("text_editor/theme/highlighting/comment_color")
+
+
 static var header_color_mutex := Mutex.new()
 static var header_color:Dictionary[String, Color] = {}
 
@@ -198,12 +211,121 @@ static func _static_init() -> void:
 		&"trim_prefix":true
 	}
 	for key in styles:
-		var stl = styles[key]
+		var stl:Dictionary = styles[key]
 		if stl.has(&"regex"):
-			stl[&"RegEx"] = RegEx.create_from_string(stl.regex)
+			var pattern:String = stl.regex
+			stl[&"RegEx"] = RegEx.create_from_string(pattern)
 	styles_mutex.unlock()
 	if not disabled:
 		printy("Tracing is Enabled")
+
+
+#                    ██████  ██████  ██ ███    ██ ████████                     #
+#                    ██   ██ ██   ██ ██ ████   ██    ██                        #
+#                    ██████  ██████  ██ ██ ██  ██    ██                        #
+#                    ██      ██   ██ ██ ██  ██ ██    ██                        #
+#                    ██      ██   ██ ██ ██   ████    ██                        #
+func                        __________PRINT__________              ()->void:pass
+
+
+static func trace(args: Dictionary = {}, stack: Array = [], object: Object = null) -> void:
+	if disabled: return
+	if stack.is_empty():
+		stack = get_stack()
+		stack.pop_front()
+	var call_site:Dictionary = stack.front()
+
+	var args3:PackedStringArray = args.keys().map(
+		func(key:Variant) -> String:
+			return format_key_value(key, args.get(key)))
+
+	var parts:Array = [
+		"[url='{source}:{line}'][color=57b3ff]{function}[/color][/url]".format(call_site),
+		"(", ', '.join(args3), ")"
+	]
+	printy("".join(parts), [], object, "", stack)
+
+
+static func printy(
+			content: Variant,
+			args_in: Variant = null,
+			object: Object = null,
+			indent: String = "",
+			custom_stack: Array[Dictionary] = [] ) -> void:
+	if disabled: return
+
+	last_time = Time.get_ticks_usec()
+	last_frame = Engine.get_process_frames()
+	last_pframe = Engine.get_physics_frames()
+
+	if content is PackedByteArray:
+		var bytes:PackedByteArray = content
+		print(Enetheru.string.sbytes(bytes))
+		return
+
+	var ctx := _build_context(content, args_in, object, indent, custom_stack)
+
+	if _is_ignored(ctx): return
+
+	_apply_thread_and_proc_info(ctx)
+	_apply_network_info(ctx)
+	_apply_object_formatting(ctx)
+	_apply_style(ctx)
+	# TODO put content formatting in here for things like arrays and dicts.
+
+	_compute_stack_distance(ctx)
+	_finalize_formatting(ctx)
+
+	if ctx.is_error:
+		_print_as_error(ctx)
+	elif ctx.is_warning:
+		_print_as_warning(ctx)
+	else:
+		_print_normal(ctx)
+
+	# Save for next distance calculation
+	_save_stack(ctx.stack)
+
+
+static func print_end_frame(physics: bool = false) -> void:
+	print_end_frame_deferred.call_deferred(physics)
+
+
+static func print_end_frame_deferred(_physics:bool = false) -> void:
+	if not reset: return
+	top_level = true
+
+# This relies on the main project and needs to be changed.
+#STUB	var line = ')('.join([
+#STUB		str(Engine.get_process_frames()).lpad(5,'_'),
+#STUB		("%0.1fms" % (EventBus.get_process_delta_time() * 1000)).lpad(5, '_'),
+#STUB		str(Engine.get_physics_frames()).lpad(5, '_'),
+#STUB		("%0.1fms" % (EventBus.get_physics_process_delta_time() * 1000)).lpad(5, '_'),
+#STUB	]) + '\n'
+#STUB
+#STUB	print(line.lpad(80, '- ' if physics else '^ '))
+	reset = false
+
+
+static func ptrace() -> void:
+	if _verbosity < LOG_TRACE: return
+	var colour:String = get_colour(LOG_TRACE).to_html()
+	var call_site:Dictionary = get_stack()[-1]
+	var line:String = "[url='{source}:{line}'][color=57b3ff]{function}[/color][/url]".format(call_site)
+	print_rich( "[color=%s]%s[/color]" % [colour, line] )
+
+
+static func plog( level:int, ...message:Array ) -> void:
+	if _verbosity < level: return
+	var colour:String = get_colour(level).to_html()
+	var padding:String = "".lpad(get_stack().size()-1, '\t') if level == LOG_TRACE else ""
+	print_rich( padding + "[color=%s]%s[/color]" % [colour, ' '.join(message)] )
+
+
+static func plog_check( level:int, ...message:Array ) -> bool:
+	if _verbosity < level: return false
+	plog(level, message)
+	return true
 
 
 #         ███    ███ ███████ ████████ ██   ██  ██████  ██████  ███████         #
@@ -213,10 +335,20 @@ static func _static_init() -> void:
 #         ██      ██ ███████    ██    ██   ██  ██████  ██████  ███████         #
 func                        _________METHODS_________              ()->void:pass
 
+static func lvl( level:int ) -> bool:
+	return _verbosity >= level
+
 static func disable() -> void: disabled = true
 
 
 static func enable() -> void: disabled = false
+
+
+## Get the stack and strip the top n stack frames
+static func get_stack_popped( n:int = 0 ) -> Array:
+	var stack:Array = get_stack()
+	for i in mini(n+1,stack.size()-1): stack.pop_front()
+	return stack
 
 
 static func add_style(style_name: StringName, new_style: Dictionary) -> void:
@@ -224,7 +356,8 @@ static func add_style(style_name: StringName, new_style: Dictionary) -> void:
 		printy("Overwriting Style: ", style_name)
 
 	if new_style.has(&"regex") and not new_style.has(&"RegEx"):
-		var compiled = RegEx.create_from_string(new_style.regex)
+		var pattern:String = new_style.regex
+		var compiled:RegEx = RegEx.create_from_string(pattern)
 		if compiled.is_valid():
 			new_style[&"RegEx"] = compiled
 		else:
@@ -236,8 +369,37 @@ static func add_style(style_name: StringName, new_style: Dictionary) -> void:
 	styles_mutex.unlock()
 
 
+
+
+
+static func net_is_not_valid() -> int: return false
+
+
+static func get_zero_int() -> int: return 0
+
+## Match the flag of most importance
+static func get_colour(type:int) -> Color:
+	if type & LOG_CRITICAL: return color_notice_critical
+	if type & LOG_ERROR:    return color_notice_error
+	if type & LOG_WARNING:  return color_notice_warning
+	if type & LOG_DEFAULT:  return color_notice_notice
+	if type & LOG_NOTICE:   return color_notice_notice
+	if type & LOG_DEBUG:    return color_notice_debug
+	if type & LOG_TRACE:    return color_notice_trace
+	return Color.DEEP_PINK
+
+#               ███████ ████████ ██████  ██ ███    ██  ██████                  #
+#               ██         ██    ██   ██ ██ ████   ██ ██                       #
+#               ███████    ██    ██████  ██ ██ ██  ██ ██   ███                 #
+#                    ██    ██    ██   ██ ██ ██  ██ ██ ██    ██                 #
+#               ███████    ██    ██   ██ ██ ██   ████  ██████                  #
+func                        __________STRING_________              ()->void:pass
+
+static func get_empty_string() -> String: return ""
+
+
 static func get_script_name(script: Script) -> String:
-	var name = script.get_global_name()
+	var name:String = script.get_global_name()
 	if name.is_empty() and script.get_base_script():
 		name = script.get_base_script().get_global_name()
 	if name.is_empty():
@@ -245,36 +407,17 @@ static func get_script_name(script: Script) -> String:
 	return name
 
 
+## Returns a BBCode URL link string.
+static func link( url:String, text:String = "" ) -> String:
+	return "[url='{url}']{text}[/url]".format({
+		&'url':url, &'text':(url if text.is_empty() else text) })
+
+
 static func strip_bbcode(s: String) -> String:
-	var regex = RegEx.new()
-	regex.compile("\\[.*?\\]")
+	var regex := RegEx.new()
+	if regex.compile("\\[.*?\\]") != OK:
+		return "regex error"
 	return regex.sub(s, "", true)
-
-
-static func print_end_frame(physics: bool = false) -> void:
-	print_end_frame_deferred.call_deferred(physics)
-
-
-static func print_end_frame_deferred(physics: bool = false) -> void:
-	if not reset: return
-	top_level = true
-
-	var line = ')('.join([
-		str(Engine.get_process_frames()).lpad(5,'_'),
-		("%0.1fms" % (EventBus.get_process_delta_time() * 1000)).lpad(5, '_'),
-		str(Engine.get_physics_frames()).lpad(5, '_'),
-		("%0.1fms" % (EventBus.get_physics_process_delta_time() * 1000)).lpad(5, '_'),
-	]) + '\n'
-
-	print(line.lpad(80, '- ' if physics else '^ '))
-	reset = false
-
-
-static func net_is_not_valid() -> int: return false
-
-static func get_zero_int() -> int: return 0
-
-static func get_empty_string() -> String: return ""
 
 # args dictionary values depending on their type.
 static func format_key_value(key:Variant, value:Variant) -> String:
@@ -310,147 +453,72 @@ static func format_key_value(key:Variant, value:Variant) -> String:
 		#TYPE_RID: pass # = 23
 		TYPE_OBJECT: pass # = 24
 		TYPE_CALLABLE:
-			return "%s=%s" % [key, value.get_method()]
+			var c:Callable = value
+			return "%s=%s" % [key, c.get_method()]
 		#TYPE_SIGNAL: pass # = 26
 		TYPE_DICTIONARY:
-			if not value.is_typed():
-				return "%s=dict{%s}" % [key, value.size()]
-			var kt:String = value.get_typed_key_class_name()
-			if kt.is_empty(): kt = type_string(value.get_typed_key_builtin())
-			var vt:String = value.get_typed_value_class_name()
-			if vt.is_empty(): vt = type_string(value.get_typed_value_builtin())
-			return "%s=dict<%s,%s>{%s}" % [key,kt,vt, value.size()]
+			var d:Dictionary = value
+			if not d.is_typed():
+				return "%s=dict{%s}" % [key, d.size()]
+			var kt:String = d.get_typed_key_class_name()
+			if kt.is_empty(): kt = type_string(d.get_typed_key_builtin())
+			var vt:String = d.get_typed_value_class_name()
+			if vt.is_empty(): vt = type_string(d.get_typed_value_builtin())
+			return "%s=dict<%s,%s>{%s}" % [key,kt,vt, d.size()]
 		TYPE_ARRAY:
-			if not value.is_typed():
-				return "%s=Array[%s]" % [key, value.size()]
-			var tn:StringName = value.get_typed_class_name()
-			if tn.is_empty(): tn = type_string(value.get_typed_builtin())
-			return "%s=Array<%s>[%s]" % [key, tn , value.size()]
+			var a:Array = value
+			if not a.is_typed():
+				return "%s=Array[%s]" % [key, a.size()]
+			var tn:StringName = a.get_typed_class_name()
+			if tn.is_empty(): tn = type_string(a.get_typed_builtin())
+			return "%s=Array<%s>[%s]" % [key, tn , a.size()]
 		TYPE_PACKED_BYTE_ARRAY:
-			return "%s=bytes[%s]" % [key, value.size()]
+			var p:PackedByteArray = value
+			return "%s=bytes[%s]" % [key, p.size()]
 		TYPE_PACKED_INT32_ARRAY:
-			return "%s=int[%s]" % [key, value.size()]
+			var p:PackedInt32Array = value
+			return "%s=int[%s]" % [key, p.size()]
 		TYPE_PACKED_INT64_ARRAY:
-			return "%s=int64[%s]" % [key, value.size()]
+			var p:PackedInt64Array = value
+			return "%s=int64[%s]" % [key, p.size()]
 		TYPE_PACKED_FLOAT32_ARRAY:
-			return "%s=float[%s]" % [key, value.size()]
+			var p:PackedFloat32Array = value
+			return "%s=float[%s]" % [key, p.size()]
 		TYPE_PACKED_FLOAT64_ARRAY:
-			return "%s=double[%s]" % [key, value.size()]
+			var p:PackedFloat64Array = value
+			return "%s=double[%s]" % [key, p.size()]
 		TYPE_PACKED_STRING_ARRAY:
-			return "%s=string[%s]" % [key, value.size()]
+			var p:PackedStringArray = value
+			return "%s=string[%s]" % [key, p.size()]
 		TYPE_PACKED_VECTOR2_ARRAY:
-			return "%s=vec2[%s]" % [key, value.size()]
+			var p:PackedVector2Array = value
+			return "%s=vec2[%s]" % [key, p.size()]
 		TYPE_PACKED_VECTOR3_ARRAY:
-			return "%s=vec3[%s]" % [key, value.size()]
+			var p:PackedVector3Array = value
+			return "%s=vec3[%s]" % [key, p.size()]
 		TYPE_PACKED_COLOR_ARRAY:
-			return "%s=color[%s]" % [key, value.size()]
+			var p:PackedColorArray = value
+			return "%s=color[%s]" % [key, p.size()]
 		TYPE_PACKED_VECTOR4_ARRAY:
-			return "%s=vec4[%s]" % [key, value.size()]
+			var p:PackedVector4Array = value
+			return "%s=vec4[%s]" % [key, p.size()]
 		_: return str(key) + "=" + str(value)
 
 	# Only Object falls through.
 	if value is Resource:
-		return "%s=%s" % [ key, Core.link(
-				value.resource_path,
-				value.resource_path.get_file())]
+		var r:Resource = value
+		return "%s=%s" % [key, link( r.resource_path, r.resource_path.get_file())]
 	if value is Node:
 		return str(key) + "=" + value.name
 
 	if value is Object:
-		var name:Variant = value.get(&'name')
+		var o:Object = value
+		var name:Variant = o.get(&'name')
 		if name != null:
 			return str(key) + "=" + value.name
-		return str(key) + "=" + value.get_class()
+		return str(key) + "=" + o.get_class()
 	return str(key) + "=" + str(value)
 
-
-static func trace(args: Dictionary = {}, stack: Array = [], object: Object = null) -> void:
-	if disabled: return
-	if stack.is_empty():
-		stack = get_stack()
-		stack.pop_front()
-	var call_site = stack.front()
-
-	var args3:PackedStringArray = args.keys().map(
-		func(key:Variant) -> String:
-			return format_key_value(key, args.get(key)))
-
-	var parts = [
-		"[url='{source}:{line}'][color=57b3ff]{function}[/color][/url]".format(call_site),
-		"(", ', '.join(args3), ")"
-	]
-	printy("".join(parts), [], object, "", stack)
-
-
-static func printy(
-			content: Variant,
-			args_in: Variant = null,
-			object: Object = null,
-			indent: String = "",
-			custom_stack: Array[Dictionary] = [] ) -> void:
-	if disabled: return
-
-	last_time = Time.get_ticks_usec()
-	last_frame = Engine.get_process_frames()
-	last_pframe = Engine.get_physics_frames()
-
-	if content is PackedByteArray:
-		print(Enetheru.string.sbytes(content))
-		return
-
-	var ctx := _build_context(content, args_in, object, indent, custom_stack)
-
-	if _is_ignored(ctx): return
-
-	_apply_thread_and_proc_info(ctx)
-	_apply_network_info(ctx)
-	_apply_object_formatting(ctx)
-	_apply_style(ctx)
-	# TODO put content formatting in here for things like arrays and dicts.
-
-	_compute_stack_distance(ctx)
-	_finalize_formatting(ctx)
-
-	if ctx.is_error:
-		_print_as_error(ctx)
-	elif ctx.is_warning:
-		_print_as_warning(ctx)
-	else:
-		_print_normal(ctx)
-
-	# Save for next distance calculation
-	_save_stack(ctx.stack)
-
-
-#     ███████ ██   ██  █████  ███    ███ ██████  ██      ███████ ███████       #
-#     ██       ██ ██  ██   ██ ████  ████ ██   ██ ██      ██      ██            #
-#     █████     ███   ███████ ██ ████ ██ ██████  ██      █████   ███████       #
-#     ██       ██ ██  ██   ██ ██  ██  ██ ██      ██      ██           ██       #
-#     ███████ ██   ██ ██   ██ ██      ██ ██      ███████ ███████ ███████       #
-func                        ________EXAMPLES_________              ()->void:pass
-
-static func example_net_string() -> String:
-	var server : bool = false
-	var main_loop :SceneTree = Engine.get_main_loop()
-	if main_loop \
-		and main_loop.current_scene \
-		and	main_loop.current_scene.multiplayer:
-			server = main_loop.current_scene.multiplayer.is_server()
-
-	var fd : Dictionary = {
-		'icon': "󰒍 " if server else "󰀑 ",
-		'iconc': 'yellow' if server else 'greenyellow',
-		'id': Enetheru.string.id_str( net_id ),
-		'idc': 'goldenrod' if server else Enetheru.colour.random().to_html() }
-	return "[color={iconc}]{icon}[/color][color={idc}]{id}[/color]".format(fd)
-
-
-# Example type matcher for an object:
-static func null_matcher( v:Variant, ctx:LogCtx ) -> void:
-	if v == null:
-		ctx.header_icon = ' '
-		ctx.header_color = "salmon"
-		ctx.header_name = "<null>"
 
 
 #             ██████  ██████  ██ ██    ██  █████  ████████ ███████             #
@@ -519,7 +587,7 @@ static func _compute_stack_distance(ctx: LogCtx) -> void:
 	var ssize := ctx.stack_size
 
 	# Apply icon penalty consistently (header or msg icon counts)
-	var has_icon = ctx.header_icon or ctx.msg_icon
+	var has_icon:bool = ctx.header_icon or ctx.msg_icon
 
 	if ctx.indent.is_empty():
 		if has_icon: ssize -= 1
@@ -531,18 +599,18 @@ static func _compute_stack_distance(ctx: LogCtx) -> void:
 		ctx.indent = "  " + " ".repeat(maxi(0, ssize-1))
 
 	if ctx.distance < 0:
-		ctx.flow_return = "┌─" + "──".repeat(abs(ctx.distance+1)) + "┘"
+		ctx.flow_return = "┌─" + "──".repeat(absi(ctx.distance+1)) + "┘"
 
 
 static func _apply_thread_and_proc_info(ctx: LogCtx) -> void:
-	var is_thread = OS.get_thread_caller_id() != OS.get_main_thread_id()
+	var is_thread:bool = OS.get_thread_caller_id() != OS.get_main_thread_id()
 	ctx.proc_icon = " " if is_thread else " "
 
 
 static func _apply_network_info(ctx: LogCtx) -> void:
 	var rpc_string := ""
 	if is_net_valid.call():
-		var _net_id := get_net_id.call()
+		var _net_id:int = get_net_id.call()
 		if net_id != _net_id:
 			ctx.newline = true
 			net_id = _net_id
@@ -577,7 +645,7 @@ static func _apply_object_formatting(ctx: LogCtx) -> void:
 			ctx.header_name = str(ctx.object.get("name"))
 
 	if ctx.header_name.is_empty():
-		var script := ctx.object.get_script()
+		var script:Script = ctx.object.get_script()
 		if script:
 			ctx.header_name = get_script_name(script)
 
@@ -587,7 +655,7 @@ static func _apply_object_formatting(ctx: LogCtx) -> void:
 
 	if ctx.header_color.is_empty():
 		header_color_mutex.lock()
-		var col = header_color.get_or_add(ctx.header_name, Enetheru.colour.random())
+		var col:Color = header_color.get_or_add(ctx.header_name, Enetheru.colour.random())
 		header_color_mutex.unlock()
 		ctx.header_color = col.to_html()
 
@@ -610,7 +678,8 @@ static func _apply_style(ctx: LogCtx) -> void:
 		var matched := false
 
 		if stl.has(&"RegEx"):
-			var rmatch = stl[&"RegEx"].search(raw_msg)
+			var r:RegEx = stl[&"RegEx"]
+			var rmatch:RegExMatch = r.search(raw_msg)
 			if rmatch and rmatch.get_end() >= 0:
 				matched = true
 				if stl.get(&"trim_prefix", false):
@@ -683,7 +752,7 @@ static func _finalize_formatting(ctx: LogCtx) -> void:
 ## - Continuation lines indented by continuation_indent spaces.
 ##
 ## Returns array of lines (without trailing \n).
-static func reflow_text(
+static func _reflow_text(
 			text: String,
 			max_width: int = 88,
 			continuation_indent: int = 4) -> Array[String]:
@@ -735,7 +804,7 @@ static func reflow_text(
 				para_end = i
 				break
 			elif remaining[i] == '[':
-				var block_end = _find_bbcode_block_end(remaining, i)
+				var block_end:int = _find_bbcode_block_end(remaining, i)
 				if block_end > i:
 					para_end = i
 					break
@@ -912,7 +981,7 @@ static func _print_normal(ctx: LogCtx) -> void:
 		ctx.header])
 	# TODO I need to figure out how i can get the width of the output console.
 
-	var wrapped_lines = reflow_text(ctx.msg, 80, 0)
+	var wrapped_lines:Array = _reflow_text(ctx.msg, 80, 0)
 	var reflow_left:String = strip_bbcode(ctx.left)
 	for i in reflow_left.length() -1:
 		reflow_left[i] = ' '
@@ -960,3 +1029,35 @@ static func _save_stack(stack: Array) -> void:
 	prev_stack_size = stack.size()
 	prev_stack = stack
 	prev_stack_mutex.unlock()
+
+
+
+#     ███████ ██   ██  █████  ███    ███ ██████  ██      ███████ ███████       #
+#     ██       ██ ██  ██   ██ ████  ████ ██   ██ ██      ██      ██            #
+#     █████     ███   ███████ ██ ████ ██ ██████  ██      █████   ███████       #
+#     ██       ██ ██  ██   ██ ██  ██  ██ ██      ██      ██           ██       #
+#     ███████ ██   ██ ██   ██ ██      ██ ██      ███████ ███████ ███████       #
+func                        ________EXAMPLES_________              ()->void:pass
+
+static func example_net_string() -> String:
+	var server : bool = false
+	var main_loop :SceneTree = Engine.get_main_loop()
+	if main_loop \
+		and main_loop.current_scene \
+		and	main_loop.current_scene.multiplayer:
+			server = main_loop.current_scene.multiplayer.is_server()
+
+	var fd : Dictionary = {
+		'icon': "󰒍 " if server else "󰀑 ",
+		'iconc': 'yellow' if server else 'greenyellow',
+		'id': Enetheru.string.id_str( net_id ),
+		'idc': 'goldenrod' if server else Enetheru.colour.random().to_html() }
+	return "[color={iconc}]{icon}[/color][color={idc}]{id}[/color]".format(fd)
+
+
+# Example type matcher for an object:
+static func null_matcher( v:Variant, ctx:LogCtx ) -> void:
+	if v == null:
+		ctx.header_icon = ' '
+		ctx.header_color = "salmon"
+		ctx.header_name = "<null>"

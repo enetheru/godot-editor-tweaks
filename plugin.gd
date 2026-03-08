@@ -9,12 +9,15 @@ const Self = preload('uid://setvleg6sni3')
 
 func                        _________IMPORTS_________              ()->void:pass
 
+const Print = preload("uid://babswmnh2kosn")
 
-const SettingsHelper = preload('uid://b0mfrmvvxnr01')
-var settings_mgr : SettingsHelper
+const SettingsHalpr = preload("uid://o5djwaewipdy")
+var settings_hlp:SettingsHalpr
 
-const EditorLog = preload('uid://bqnxqo33qkevi')
-
+const Author:String = "Samuel Nicholas (Enetheru)"
+const author:String = "enetheru"
+const PluginName:String = "EditorTweaks"
+const plugin_name:String = "editor_tweaks"
 
 # ██████  ██████   ██████  ██████  ███████ ██████  ████████ ██ ███████ ███████ #
 # ██   ██ ██   ██ ██    ██ ██   ██ ██      ██   ██    ██    ██ ██      ██      #
@@ -23,14 +26,11 @@ const EditorLog = preload('uid://bqnxqo33qkevi')
 # ██      ██   ██  ██████  ██      ███████ ██   ██    ██    ██ ███████ ███████ #
 func                        ________PROPERTIES_______              ()->void:pass
 
-static var editor_log : BoxContainer :
-	get = get_editorlog
-static var output_rtl : RichTextLabel :
-	get = get_output_rtl
-static var code_edit_font : FontVariation :
-	get = get_code_font
-static var editor_theme : Theme :
-	get(): return EditorInterface.get_editor_theme()
+static var _prime:Self
+static var plugin_dir:String
+static var plugin_path:String
+
+var opts:TweakOptions
 
 var editorlog_font_names : PackedStringArray = [
 	'output_source',
@@ -50,7 +50,7 @@ func _on_editorlog_link_clicked( meta : Variant ) -> void:
 	var url : String = meta
 	if not url: return
 	if not "://" in url:
-		trace_detail("url: %s" % url)
+		Print.plog(Print.LOG_DEFAULT, "url: %s" % url)
 		return
 	if url.begins_with("res://"):
 		var parts : PackedStringArray = url.split(':')
@@ -66,9 +66,32 @@ func _on_editorlog_link_clicked( meta : Variant ) -> void:
 			_:
 				EditorInterface.edit_resource(load(url))
 	else:
-		trace_detail("url: %s" % url)
+		Print.plog(Print.LOG_DEFAULT, "url: %s" % url)
 		@warning_ignore('return_value_discarded')
 		OS.shell_open( url )
+
+#TODO  I want a setting path in here too so that if a setting fails, it can be reverted.
+func _on_project_settings_changed(
+			setting_name:String, setting_value:Variant ) -> void:
+	Print.plog(Print.LOG_TRACE, ''.join([setting_name, ':', setting_value]))
+	var b:bool
+	match typeof(setting_value):
+		TYPE_BOOL: b = setting_value
+	match setting_name:
+		"experimental" when setting_value == true: enable_experimental_features()
+		"experimental": disable_experimental_features()
+		"verbosity": Print._verbosity = setting_value
+		"enable_ligatures": editorlog_ligatures_toggle(b)
+		"add_rotate_bbcode_effect": editorlog_rotate_toggle(b)
+		"enable_output_search_bar": editorlog_search_toggle(b)
+		"enable_clickable_url_links": editorlog_url_links_set(b)
+		"use_monospace_glyphs": monospace_glyphs_toggle(b)
+		"add_rich_paste": editorlog_rich_paste_toggle(b)
+		"enable_linespacing_tweaks": linespacing_toggle(b)
+		"adjust_linespacing_above" when opts.enable_linespacing_tweaks:
+			linespacing_toggle(opts.enable_linespacing_tweaks)
+		"adjust_linespacing_below" when opts.enable_linespacing_tweaks: 
+			linespacing_toggle(opts.enable_linespacing_tweaks)
 
 
 #      ██████  ██    ██ ███████ ██████  ██████  ██ ██████  ███████ ███████     #
@@ -79,10 +102,60 @@ func _on_editorlog_link_clicked( meta : Variant ) -> void:
 func                        ________OVERRIDES________              ()->void:pass
 
 func _init() -> void:
-	trace()
+	Print.ptrace()
+	_prime = self
+	name = PluginName
+	plugin_path = get_script().resource_path
+	plugin_dir = plugin_path.get_base_dir()
+	
+	opts = TweakOptions.new()
+	settings_hlp = SettingsHalpr.new(opts, plugin_name)
+	
+	@warning_ignore("return_value_discarded")
+	settings_hlp.settings_changed.connect(_on_project_settings_changed)
+	
 	icons_dump = Self.dump_icons
 	colours_dump = Self.dump_colours
-	settings_mgr = SettingsHelper.new(self, "plugin/enetheru-editor-tweaks")
+	
+	Print.plog( Print.LOG_DEBUG, "%s._init() - Completed" % name )
+
+
+func _enter_tree() -> void:
+	Print.plog( Print.LOG_TRACE, "%s._enter_tree()" % name )
+	
+	Print._verbosity = opts.verbosity
+	if opts.enable_ligatures:           editorlog_ligatures_toggle(opts.enable_ligatures)
+	if opts.add_rotate_bbcode_effect:   editorlog_rotate_toggle(opts.add_rotate_bbcode_effect)
+	if opts.enable_output_search_bar:   editorlog_search_toggle(opts.enable_output_search_bar)
+	if opts.enable_clickable_url_links: editorlog_url_links_set(opts.enable_clickable_url_links)
+	if opts.use_monospace_glyphs:       monospace_glyphs_toggle(opts.use_monospace_glyphs)
+	if opts.add_rich_paste:             editorlog_rich_paste_toggle(opts.add_rich_paste)
+	if opts.enable_linespacing_tweaks:  linespacing_toggle(opts.enable_linespacing_tweaks)
+	if opts.experimental:               enable_experimental_features()
+
+
+func _exit_tree() -> void:
+	Print.plog( Print.LOG_TRACE, "%s._exit_tree()" % name )
+	
+	if opts.experimental:
+		disable_experimental_features()
+	
+func _get_plugin_name() -> String:
+	Print.plog( Print.LOG_TRACE, "%s._get_plugin_name()" % name )
+	return plugin_name
+
+
+#func _get_plugin_icon() -> Texture2D:
+	#Print.plog( Print.LOG_TRACE, "%s._get_plugin_icon()" % name )
+	#return ICON_BW_TINY
+
+
+func _enable_plugin() -> void:
+	Print.plog( Print.LOG_TRACE, "%s._enable_plugin()" % name )
+
+
+func _disable_plugin() -> void:
+	Print.plog( Print.LOG_TRACE, "%s._disable_plugin()" % name )
 
 
 #         ███    ███ ███████ ████████ ██   ██  ██████  ██████  ███████         #
@@ -92,7 +165,18 @@ func _init() -> void:
 #         ██      ██ ███████    ██    ██   ██  ██████  ██████  ███████         #
 func                        _________METHODS_________              ()->void:pass
 
-static func get_editorlog() -> BoxContainer:
+
+func enable_experimental_features() -> void:
+	Print.plog( Print.LOG_DEBUG, "enable_experimental_features" )
+
+
+func disable_experimental_features() -> void:
+	Print.plog( Print.LOG_DEBUG, "disable_experimental_features" )
+
+
+static var editor_log:Control
+static func get_editorlog_4_5() -> BoxContainer:
+	Print.ptrace()
 	if is_instance_valid(editor_log): return editor_log
 	var base_control : Control = EditorInterface.get_base_control()
 	editor_log = base_control.find_child("*EditorLog*", true, false)
@@ -101,42 +185,67 @@ static func get_editorlog() -> BoxContainer:
 	return null
 
 
-static func get_output_rtl() -> RichTextLabel:
-	if is_instance_valid(output_rtl): return output_rtl
-	if is_instance_valid(get_editorlog()):
-		output_rtl = editor_log.find_child("*Rich*", true, false)
-		if is_instance_valid(output_rtl):return output_rtl
-		push_error("Unable to find RichTextLabel in EditorLog's children")
+static func get_editorlog_4_6() -> Control:
+	Print.ptrace()
+	if is_instance_valid(editor_log): return editor_log
+	var base_control : Control = EditorInterface.get_base_control()
+	var maybe:Control = base_control.find_child("*Output*", true, false)
+	if is_instance_valid(maybe):
+		editor_log = maybe
+		return maybe
+	push_error("Unable to find EditorLog")
 	return null
 
+
+static func get_editorlog() -> Control:
+	Print.ptrace()
+	var version:Dictionary = Engine.get_version_info()
+	if version.major >= 4:
+		if version.minor >= 6:
+			return get_editorlog_4_6()
+		if version.minor < 6:
+			return get_editorlog_4_5()
+	return null
+	
+
+static func get_output_rtl() -> RichTextLabel:
+	Print.ptrace()
+	return null
+	#if is_instance_valid(output_rtl): return output_rtl
+	#if is_instance_valid(get_editorlog()):
+		#output_rtl = editor_log.find_child("*Rich*", true, false)
+		#if is_instance_valid(output_rtl):return output_rtl
+		#push_error("Unable to find RichTextLabel in EditorLog's children")
+	#return null
 
 static func get_code_font() -> FontVariation:
+	Print.ptrace()
+	var editor_theme:Theme = EditorInterface.get_editor_theme()
+	var code_edit_font:FontVariation = editor_theme.get_font("font", "CodeEdit")
 	if is_instance_valid(code_edit_font): return code_edit_font
-	if is_instance_valid(get_editorlog()):
-		code_edit_font = editor_theme.get_font("font", "CodeEdit")
-		if is_instance_valid(code_edit_font):return code_edit_font
-		push_error("Unable to find CodeEdit font in editor theme")
+	Print.plog(Print.LOG_ERROR, "Unable to find CodeEdit font in editor theme")
 	return null
 
 
-# ███    ███  ██████  ███    ██  ██████  ███████ ██████   █████   █████ ██████ #
-# ████  ████ ██    ██ ████   ██ ██    ██ ██      ██   ██ ██   ██ ██     ██     #
-# ██ ████ ██ ██    ██ ██ ██  ██ ██    ██ ███████ ██████  ███████ ██     ████   #
-# ██  ██  ██ ██    ██ ██  ██ ██ ██    ██      ██ ██      ██   ██ ██     ██     #
-# ██      ██  ██████  ██   ████  ██████  ███████ ██      ██   ██  █████ ██████ #
-func                        ________MONOSPACE________              ()->void:pass
-
-@export_custom( PROPERTY_HINT_NONE, "", PROPERTY_USAGE_EDITOR_BASIC_SETTING)
-var monospace_glyphs : bool = false :
-	set = monospace_glyphs_toggle
-
+func                        __Monospaced_Font________              ()->void:pass
+#region Monospaced Font
+#MARK: Monospaced Font
+##                                                                     [br]
+## │ __  __                                      _   ___        _      [br]
+## │|  \/  |___ _ _  ___ ____ __  __ _ __ ___ __| | | __|__ _ _| |_    [br]
+## │| |\/| / _ \ ' \/ _ (_-< '_ \/ _` / _/ -_) _` | | _/ _ \ ' \  _|   [br]
+## │|_|  |_\___/_||_\___/__/ .__/\__,_\__\___\__,_| |_|\___/_||_\__|   [br]
+## ╰───────────────────────|_|──────────────────────────────────────── [br]
+## Monospaced Font By-Line
+##
+## Monospaced Font Description
 func monospace_glyphs_toggle( toggled_on : bool ) -> void:
-	trace()
+	Print.ptrace()
+	var output_rtl:RichTextLabel = get_output_rtl()
 	if not is_instance_valid(output_rtl): return
-	monospace_glyphs = toggled_on
 	if toggled_on:
-		trace_detail("Enable Monospace Font Glyphs Fixes")
-		trace_detail("object instance ID: %X" % get_instance_id() )
+		Print.plog(Print.LOG_DEFAULT, "Enable Monospace Font Glyphs Fixes")
+		Print.plog(Print.LOG_DEFAULT, "object instance ID: %X" % get_instance_id() )
 		#var font : Font = code_edit_font.base_font
 		#print( code_edit_font.get_supported_chars())
 		#print(JSON.stringify(font.get_supported_feature_list(), "  ", false) )
@@ -173,55 +282,36 @@ func monospace_glyphs_toggle( toggled_on : bool ) -> void:
 
 
 	else:
-		trace_detail("Disable Monospace Font Glyphs Fixes")
+		Print.plog(Print.LOG_DEFAULT, "Disable Monospace Font Glyphs Fixes")
+
+#endregion Monospaced Font
 
 
+func                        __Line_Spacing___________              ()->void:pass
+#region Line Spacing
+#MARK: Line Spacing
+##                                                      [br]
+## │ _    _            ___               _              [br]
+## │| |  (_)_ _  ___  / __|_ __  __ _ __(_)_ _  __ _    [br]
+## │| |__| | ' \/ -_) \__ \ '_ \/ _` / _| | ' \/ _` |   [br]
+## │|____|_|_||_\___| |___/ .__/\__,_\__|_|_||_\__, |   [br]
+## ╰──────────────────────|_|──────────────────|___/─── [br]
+## Line Spacing By-Line
+##
+## Line Spacing Description
+var was_enabled:bool = false
+func linespacing_toggle( toggle_on:bool ) -> void:
+	Print.ptrace()
+	if toggle_on == was_enabled: return
+	was_enabled = toggle_on
+	var code_font:FontVariation = get_code_font()
+	if not code_font:
+		Print.plog(Print.LOG_ERROR, "Unable to get font:CodeEdit from editor theme.")
+		return
+	code_font.spacing_top = opts.adjust_linespacing_above if toggle_on else -1
+	code_font.spacing_bottom = opts.adjust_linespacing_below if toggle_on else -1
 
-#  ██      ██ ███   ██ ██████ ██████ █████   ████   █████ ██ ███   ██  █████   #
-#  ██      ██ ████  ██ ██     ██     ██  ██ ██  ██ ██     ██ ████  ██ ██       #
-#  ██      ██ ██ ██ ██ ████   ██████ █████  ██████ ██     ██ ██ ██ ██ ██  ███  #
-#  ██      ██ ██  ████ ██         ██ ██     ██  ██ ██     ██ ██  ████ ██   ██  #
-#  ███████ ██ ██   ███ ██████ ██████ ██     ██  ██  █████ ██ ██   ███  █████   #
-func                            ______LINE_SPACING_______                    ()->void:pass
-@export_custom( PROPERTY_HINT_NONE, "",
-	PROPERTY_USAGE_EDITOR_BASIC_SETTING | PROPERTY_USAGE_SUBGROUP)
-var codeedit_linespacing_toggle : bool = false :
-	set(toggle_on):
-		trace()
-		codeedit_linespacing_toggle = toggle_on
-		if toggle_on:
-			fix_font_height_for_code_editor(codeedit_linespacing_above, codeedit_linespacing_below)
-		else:
-			code_edit_font.spacing_top = -1
-			code_edit_font.spacing_top = -1
-
-
-@export_custom( PROPERTY_HINT_NONE, "",
-	PROPERTY_USAGE_EDITOR_BASIC_SETTING | PROPERTY_USAGE_SUBGROUP)
-var codeedit_linespacing_above : int = 0:
-	set(v):
-		trace()
-		codeedit_linespacing_above = v
-		fix_font_height_for_code_editor(codeedit_linespacing_above, codeedit_linespacing_below)
-
-
-@export_custom( PROPERTY_HINT_NONE, "",
-	PROPERTY_USAGE_EDITOR_BASIC_SETTING | PROPERTY_USAGE_SUBGROUP)
-var codeedit_linespacing_below : int = 0:
-	set(v):
-		trace()
-		codeedit_linespacing_below = v
-		fix_font_height_for_code_editor(codeedit_linespacing_above, codeedit_linespacing_below)
-
-
-func fix_font_height_for_code_editor(top : int, bottom : int) -> void:
-	if not code_edit_font:
-		code_edit_font = editor_theme.get_font("font", "CodeEdit")
-	if top: 	code_edit_font.spacing_top = top # Original is -1
-	else:		code_edit_font.spacing_top = -1
-	if bottom: 	code_edit_font.spacing_bottom = bottom # Original is -1
-	else: 		code_edit_font.spacing_bottom = -1
-
+#endregion Line Spacing
 
 # ███████ ██████  ██ ████████  ██████  ██████        ██       ██████   ██████  #
 # ██      ██   ██ ██    ██    ██    ██ ██   ██       ██      ██    ██ ██       #
@@ -230,92 +320,100 @@ func fix_font_height_for_code_editor(top : int, bottom : int) -> void:
 # ███████ ██████  ██    ██     ██████  ██   ██       ███████  ██████   ██████  #
 func                        ________EDITOR_LOG_______              ()->void:pass
 
-# │ _    _           _
-# │| |  (_)__ _ __ _| |_ _  _ _ _ ___ ___
-# │| |__| / _` / _` |  _| || | '_/ -_|_-<
-# │|____|_\__, \__,_|\__|\_,_|_| \___/__/
-# ╰───────|___/───────────────────────────
-@export_custom( PROPERTY_HINT_NONE, "",
-	PROPERTY_USAGE_EDITOR_BASIC_SETTING | PROPERTY_USAGE_GROUP)
-var editorlog_ligatures : bool = false :
-	set = editorlog_ligatures_toggle
-
+func                        __Ligatures______________              ()->void:pass
+#region Ligatures
+#MARK: Ligatures
+##                                           [br]
+## │ _    _           _                      [br]
+## │| |  (_)__ _ __ _| |_ _  _ _ _ ___ ___   [br]
+## │| |__| / _` / _` |  _| || | '_/ -_|_-<   [br]
+## │|____|_\__, \__,_|\__|\_,_|_| \___/__/   [br]
+## ╰───────|___/──────────────────────────── [br]
+## Ligatures By-Line
+##
+## Ligatures Description
 func editorlog_ligatures_toggle( toggled_on : bool ) -> void:
-	trace()
-	editorlog_ligatures = toggled_on
-	if toggled_on: trace_detail("Enable EditorLog Ligatures")
-	else: trace_detail("Disable EditorLog Ligatures")
+	Print.ptrace()
+	if toggled_on: Print.plog(Print.LOG_DEFAULT, "Enable EditorLog Ligatures")
+	else: Print.plog(Print.LOG_DEFAULT, "Disable EditorLog Ligatures")
+	var editor_theme:Theme = EditorInterface.get_editor_theme()
 	for font_name in editorlog_font_names:
 		var font : FontVariation = editor_theme.get_font(font_name, "EditorFonts")
 		font.opentype_features = {1667329140: 1 if toggled_on else 0}
 
-# │ ___     _        _       ___  __  __        _
-# │| _ \___| |_ __ _| |_ ___| __|/ _|/ _|___ __| |_
-# │|   / _ \  _/ _` |  _/ -_) _||  _|  _/ -_) _|  _|
-# │|_|_\___/\__\__,_|\__\___|___|_| |_| \___\__|\__|
-# ╰───────────────────────────────────────────────────
-@export_custom( PROPERTY_HINT_NONE, "",
-	PROPERTY_USAGE_EDITOR_BASIC_SETTING | PROPERTY_USAGE_GROUP)
-var editorlog_rotate_effect : bool = false :
-	set = editorlog_rotate_toggle
+#endregion Ligatures
 
-var sideways_effect : RichTextEffect = preload('sideways_effect.tres')
 
-func editorlog_rotate_toggle( toggled_on : bool ) -> void:
-	trace()
-	if not is_instance_valid(output_rtl): return
-	if not is_instance_valid(sideways_effect): return
-	editorlog_rotate_effect = toggled_on
+func                        __BBCode_Rotate__________              ()->void:pass
+#region BBCode Rotate
+#MARK: BBCode Rotate
+## │ ___ ___  ___         _       ___     _        _          [br]
+## │| _ ) _ )/ __|___  __| |___  | _ \___| |_ __ _| |_ ___    [br]
+## │| _ \ _ \ (__/ _ \/ _` / -_) |   / _ \  _/ _` |  _/ -_)   [br]
+## │|___/___/\___\___/\__,_\___| |_|_\___/\__\__,_|\__\___|   [br]
+## ╰───────────────────────────────────────────────────────── [br]
+## BBCode Rotate By-Line
+##
+## BBCode Rotate Description
+# var sideways_effect : RichTextEffect = preload('sideways_effect.tres')
 
-	if toggled_on:
-		trace_detail("Enable EditorLog Sideways Text Effect")
-		output_rtl.install_effect(sideways_effect)
-	else:
-		trace_detail("Disable EditorLog Sideways Text Effect")
-		if sideways_effect in output_rtl.custom_effects:
-			output_rtl.custom_effects.erase(sideways_effect)
+func editorlog_rotate_toggle( _toggled_on : bool ) -> void:
+	Print.ptrace()
+	# if not is_instance_valid(output_rtl): return
+	# if not is_instance_valid(sideways_effect): return
 
-# │ ___                  _    ___
-# │/ __| ___ __ _ _ _ __| |_ | _ ) __ _ _ _
-# │\__ \/ -_) _` | '_/ _| ' \| _ \/ _` | '_|
-# │|___/\___\__,_|_| \__|_||_|___/\__,_|_|
-# ╰──────────────────────────────────────────
-@export_custom( PROPERTY_HINT_NONE, "",
-	PROPERTY_USAGE_EDITOR_BASIC_SETTING | PROPERTY_USAGE_GROUP)
-var editorlog_search : bool = false :
-	set = editorlog_search_toggle
+	# if toggled_on:
+		# Print.plog(Print.LOG_DEFAULT, "Enable EditorLog Sideways Text Effect")
+		# output_rtl.install_effect(sideways_effect)
+	# else:
+		# Print.plog(Print.LOG_DEFAULT, "Disable EditorLog Sideways Text Effect")
+		# if sideways_effect in output_rtl.custom_effects:
+			# output_rtl.custom_effects.erase(sideways_effect)
+#endregion BBCode Rotate
 
-func editorlog_search_toggle( toggled_on : bool ) -> void:
-	trace()
-	if not is_instance_valid(editor_log): return
-	editorlog_search = toggled_on
-	EditorLog.toggle_search_bar(editor_log, toggled_on)
 
-# │ _    _      _      _      _   _          _                _     ____
-# │| |  (_)_ _ | |__  /_\  __| |_(_)___ _ _ | |  _ _ ___ ___ (_)   / / /
-# │| |__| | ' \| / / / _ \/ _|  _| / _ \ ' \| | | '_/ -_|_-<  _   / / /
-# │|____|_|_||_|_\_\/_/ \_\__|\__|_\___/_||_| | |_| \___/__/ (_) /_/_/
-# │                                         |_|
-# ╰───────────────────────────────────────────────────────────────────────
+func                        __Search_Bar_____________              ()->void:pass
+#region Search Bar
+#MARK: Search Bar
+## │ ___                  _      ___              [br]
+## │/ __| ___ __ _ _ _ __| |_   | _ ) __ _ _ _    [br]
+## │\__ \/ -_) _` | '_/ _| ' \  | _ \/ _` | '_|   [br]
+## │|___/\___\__,_|_| \__|_||_| |___/\__,_|_|     [br]
+## ╰───────────────────────────────────────────── [br]
+## Search Bar By-Line
+##
+## Search Bar Description
+func editorlog_search_toggle( _toggled_on : bool ) -> void:
+	Print.ptrace()
+	# if not is_instance_valid(editor_log): return
+	# EditorLog.toggle_search_bar(editor_log, toggled_on)
+	
+#endregion Search Bar
+
+func                        __Clickable_Links________              ()->void:pass
+#region Clickable Links
+#MARK: Clickable Links
+## │  ___ _ _    _        _    _       _    _      _          [br]
+## │ / __| (_)__| |____ _| |__| |___  | |  (_)_ _ | |__ ___   [br]
+## │| (__| | / _| / / _` | '_ \ / -_) | |__| | ' \| / /(_-<   [br]
+## │ \___|_|_\__|_\_\__,_|_.__/_\___| |____|_|_||_|_\_\/__/   [br]
+## ╰───────────────────────────────────────────────────────── [br]
+## Clickable Links By-Line
+##
+## Clickable Links Description
 # TODO Move code to editorlog helper class
 # TODO create a registry for URL handlers that can be updated in the settings.
-
-@export_custom( PROPERTY_HINT_NONE, "editorlog",
-	PROPERTY_USAGE_EDITOR_BASIC_SETTING | PROPERTY_USAGE_GROUP)
-var editorlog_url_links : bool = false :
-	set = editorlog_url_links_set
-
 var output_rtl_og_conn : Array
 
-func editorlog_url_links_set( toggle_on:bool ) -> void:
-	trace()
-	editorlog_url_links = toggle_on
-	if toggle_on: editorlog_url_links_enabled()
-	else: editorlog_url_links_disabled()
+func editorlog_url_links_set( _toggle_on:bool ) -> void:
+	Print.ptrace()
+	#if toggle_on: editorlog_url_links_enabled()
+	#else: editorlog_url_links_disabled()
 
 
 func editorlog_url_links_enabled() -> void:
-	trace()
+	Print.ptrace()
+	var output_rtl:RichTextLabel = get_output_rtl()
 	if not is_instance_valid( output_rtl ): return
 
 	# output_rtl.autowrap_mode = TextServer.AUTOWRAP_OFF
@@ -333,13 +431,16 @@ func editorlog_url_links_enabled() -> void:
 
 
 func editorlog_url_links_disabled() -> void:
+	var output_rtl:RichTextLabel = get_output_rtl()
 	if not is_instance_valid( output_rtl ): return
-	trace()
+	Print.ptrace()
 	if output_rtl.meta_clicked.is_connected(_on_editorlog_link_clicked):
 		output_rtl.meta_clicked.disconnect(_on_editorlog_link_clicked)
 	for c : Dictionary in output_rtl_og_conn:
 		@warning_ignore('unsafe_call_argument', 'return_value_discarded')
 		output_rtl.meta_clicked.connect( c.get('callable') )
+
+#endregion Clickable Links
 
 
 func                        __RichPaste______________              ()->void:pass
@@ -356,39 +457,33 @@ func                        __RichPaste______________              ()->void:pass
 ## Because i have to remove newlines and comment strings
 ## CONTEXT_SLOT_SCRIPT_EDITOR_CODE[br]
 ## Context menu of Script editor's code editor.
-@export_custom( PROPERTY_HINT_NONE, "",
-	PROPERTY_USAGE_EDITOR_BASIC_SETTING | PROPERTY_USAGE_GROUP)
-var editorlog_rich_paste : bool = false :
-	set = editorlog_rich_paste_toggle
 
-class MyCodeEditMenu extends EditorContextMenuPlugin:
-	# _popup_menu() will be called with the path to the CodeEdit node.
-	# The option callback will receive reference to that node.
-	func _popup_menu( paths:PackedStringArray ):
-		var code_edit:CodeEdit = Engine.get_main_loop().root.get_node(paths[0]);
-		add_context_menu_item("rich_paste",
-			func(thing):
-				## how to manage the newline business?
-				var selected_text:String = code_edit.get_selected_text()
-				print_rich(selected_text.replace_char(ord('\n'), ord(' '))))
-
-
-var editorlog_rich_paste_class:MyCodeEditMenu
+var rich_paste_factory:Object
+var rich_paste_cm:EditorContextMenuPlugin
 
 func editorlog_rich_paste_toggle( toggled_on : bool ) -> void:
-	trace()
-	editorlog_ligatures = toggled_on
+	Print.ptrace()
 	if toggled_on:
-		trace_detail("Enable EditorLog Rich Paste")
-		if not is_instance_valid(editorlog_rich_paste_class):
-			editorlog_rich_paste_class = MyCodeEditMenu.new()
+		if not is_instance_valid(rich_paste_factory):
+			var rich_paste_script_path:String = plugin_dir.path_join("scripts/rich_paste.gd")
+			rich_paste_factory = load(rich_paste_script_path)
+		# if still not 
+		if not is_instance_valid(rich_paste_factory):
+			Print.plog(Print.LOG_ERROR, "Failure to create rich paste factory script instance")
+			return
+		Print.plog(Print.LOG_DEFAULT, "Creating Rich Paste ContextMenuPlugin")
+		rich_paste_cm = rich_paste_factory.call(&'create_rich_paste_cm')
+		if not is_instance_valid(rich_paste_cm):
+			Print.plog(Print.LOG_ERROR, "Error: Creation of Rich Paste ContextMenuPlugin Failed")
+			return
 		add_context_menu_plugin(
 			EditorContextMenuPlugin.ContextMenuSlot.CONTEXT_SLOT_SCRIPT_EDITOR_CODE,
-			editorlog_rich_paste_class )
+			rich_paste_cm )
 	else:
-		if is_instance_valid(editorlog_rich_paste_class):
-			trace_detail("Disable EditorLog Rich Paste")
-			remove_context_menu_plugin( editorlog_rich_paste_class )
+		if is_instance_valid(rich_paste_cm):
+			Print.plog(Print.LOG_DEFAULT, "Remve Rich Paste ContextMenuPlugin")
+			remove_context_menu_plugin( rich_paste_cm )
+			rich_paste_cm = null
 
 #endregion RichPaste
 
@@ -405,12 +500,9 @@ func                        __________ICONS__________              ()->void:pass
 	| PROPERTY_USAGE_GROUP)
 var icons_dump : Callable = dump_icons
 
-
-
-
-
 static func dump_icons() -> void:
-	var output : RichTextLabel = output_rtl
+	var editor_theme:Theme = EditorInterface.get_editor_theme()
+	var output_rtl:RichTextLabel = get_output_rtl()
 	var lines : Array[String] = [
 		"",
 		Enetheru.bbcode.h1("Icons", editor_theme.default_font_size + 2),
@@ -426,8 +518,8 @@ static func dump_icons() -> void:
 			var editor_icon : Texture2D = editor_theme.get_icon( icon_name, icon_type )
 			if editor_icon.get_width() == 0: continue
 
-			output.add_image(editor_icon, 32, 32 )
-			output.append_text(" (%d) %s %s" % [
+			output_rtl.add_image(editor_icon, 32, 32 )
+			output_rtl.append_text(" (%d) %s %s" % [
 				editor_icon.get_reference_count(), icon_name, editor_icon.get_size()])
 			print_rich("")
 
@@ -449,6 +541,7 @@ var colours_dump : Callable = dump_colours
 
 
 static func dump_colours() -> void:
+	var editor_theme:Theme = EditorInterface.get_editor_theme()
 	var lines : Array[String] = [
 		"",
 		Enetheru.bbcode.h1("Colours", editor_theme.default_font_size + 2),
@@ -472,37 +565,3 @@ static func dump_colours() -> void:
 				color_name
 				]))
 		print_rich("\n".join(lines)); lines = []
-
-
-# BEGIN_SNIPPET:trace
-func                        __________TRACE__________              ()->void:pass
-# │ _____            _
-# │|_   _| _ __ _ __(_)_ _  __ _
-# │  | || '_/ _` / _| | ' \/ _` |
-# │  |_||_| \__,_\__|_|_||_\__, |
-# ╰────────────────────────|___/───
-@export_group('Trace')
-@export var trace_disabled:bool = false
-static var trace_class_disabled:bool = false
-
-func trace( args:Dictionary = {}, object:Object = self, stack:Array = [] ) -> void:
-	if EneLog.disabled or trace_class_disabled or trace_disabled: return
-	if stack.is_empty(): stack = Core.get_stack2(1)
-	EneLog.trace( args, stack, object )
-
-
-func trace_detail( content:Variant, object:Object = null, stack:Array = [] ) -> void:
-	if EneLog.disabled or trace_class_disabled or trace_disabled: return
-	if stack.is_empty(): stack = Core.get_stack2()
-	trace_lvl( EneLog.LOG_MAX, content, object, stack)
-
-
-func trace_lvl( lvl:int, content:Variant, object:Object = null, stack:Array = [] ) -> void:
-	if (EneLog.max_level < lvl) or EneLog.disabled  \
-			or trace_class_disabled or trace_disabled: return
-	if stack.is_empty(): stack = Core.get_stack2()
-	if content is Array:
-		var arr:Array = content
-		content = ' '.join(arr.map(str))
-	EneLog.printy( content, null, object, "", stack )
-# END_SNIPPET

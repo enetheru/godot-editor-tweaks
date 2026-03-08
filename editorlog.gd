@@ -840,7 +840,7 @@ func get_visible_paragraph_range() -> Vector2i:
 	var right := n - 1
 	var first := -1
 	while left <= right:
-		var mid := (left + right) / 2
+		var mid:int = roundi((left + right) / 2.0)
 		var y := _rtl.get_paragraph_offset(mid)
 		if y >= top_y:
 			first = mid
@@ -877,7 +877,7 @@ func get_visible_line_range() -> Vector2i:
 	var right:int = n - 1
 	var first:int = -1
 	while left <= right:
-		var mid:int = (left + right) / 2
+		var mid:int = roundi((left + right) / 2.0)
 		var y:float = _rtl.get_line_offset(mid)
 		if y >= top_y:
 			first = mid
@@ -1038,20 +1038,20 @@ static var trace_class_disabled:bool = false
 
 func trace( args:Dictionary = {}, object:Object = self, stack:Array = [] ) -> void:
 	if EneLog.disabled or trace_class_disabled or trace_disabled: return
-	if stack.is_empty(): stack = Core.get_stack2(1)
+	if stack.is_empty(): stack = EneLog.get_stack_popped(1)
 	EneLog.trace( args, stack, object )
 
 
 func trace_detail( content:Variant, object:Object = null, stack:Array = [] ) -> void:
 	if EneLog.disabled or trace_class_disabled or trace_disabled: return
-	if stack.is_empty(): stack = Core.get_stack2()
+	if stack.is_empty(): stack = EneLog.get_stack_popped()
 	trace_lvl( EneLog.LOG_MAX, content, object, stack)
 
 
 func trace_lvl( lvl:int, content:Variant, object:Object = null, stack:Array = [] ) -> void:
 	if (EneLog.max_level < lvl) or EneLog.disabled  \
 			or trace_class_disabled or trace_disabled: return
-	if stack.is_empty(): stack = Core.get_stack2()
+	if stack.is_empty(): stack = EneLog.get_stack_popped()
 	if content is Array:
 		var arr:Array = content
 		content = ' '.join(arr.map(str))
