@@ -90,7 +90,7 @@ func _on_project_settings_changed(
 		"enable_linespacing_tweaks": linespacing_toggle(b)
 		"adjust_linespacing_above" when opts.enable_linespacing_tweaks:
 			linespacing_toggle(opts.enable_linespacing_tweaks)
-		"adjust_linespacing_below" when opts.enable_linespacing_tweaks: 
+		"adjust_linespacing_below" when opts.enable_linespacing_tweaks:
 			linespacing_toggle(opts.enable_linespacing_tweaks)
 
 
@@ -107,23 +107,22 @@ func _init() -> void:
 	name = PluginName
 	plugin_path = get_script().resource_path
 	plugin_dir = plugin_path.get_base_dir()
-	
+
 	opts = TweakOptions.new()
 	settings_hlp = SettingsHalpr.new(opts, plugin_name)
-	
+
 	@warning_ignore("return_value_discarded")
 	settings_hlp.settings_changed.connect(_on_project_settings_changed)
-	
+
 	icons_dump = Self.dump_icons
 	colours_dump = Self.dump_colours
-	
+
 	Print.plog( Print.LOG_DEBUG, "%s._init() - Completed" % name )
 
 
 func _enter_tree() -> void:
-	Print.plog( Print.LOG_TRACE, "%s._enter_tree()" % name )
-	
 	Print._verbosity = opts.verbosity
+	Print.ptrace()
 	if opts.enable_ligatures:           editorlog_ligatures_toggle(opts.enable_ligatures)
 	if opts.add_rotate_bbcode_effect:   editorlog_rotate_toggle(opts.add_rotate_bbcode_effect)
 	if opts.enable_output_search_bar:   editorlog_search_toggle(opts.enable_output_search_bar)
@@ -135,13 +134,12 @@ func _enter_tree() -> void:
 
 
 func _exit_tree() -> void:
-	Print.plog( Print.LOG_TRACE, "%s._exit_tree()" % name )
-	
+	Print.ptrace()
 	if opts.experimental:
 		disable_experimental_features()
-	
+
 func _get_plugin_name() -> String:
-	Print.plog( Print.LOG_TRACE, "%s._get_plugin_name()" % name )
+	Print.ptrace()
 	return plugin_name
 
 
@@ -151,11 +149,11 @@ func _get_plugin_name() -> String:
 
 
 func _enable_plugin() -> void:
-	Print.plog( Print.LOG_TRACE, "%s._enable_plugin()" % name )
+	Print.ptrace()
 
 
 func _disable_plugin() -> void:
-	Print.plog( Print.LOG_TRACE, "%s._disable_plugin()" % name )
+	Print.ptrace()
 
 
 #         ███    ███ ███████ ████████ ██   ██  ██████  ██████  ███████         #
@@ -206,7 +204,7 @@ static func get_editorlog() -> Control:
 		if version.minor < 6:
 			return get_editorlog_4_5()
 	return null
-	
+
 
 static func get_output_rtl() -> RichTextLabel:
 	Print.ptrace()
@@ -387,7 +385,7 @@ func editorlog_search_toggle( _toggled_on : bool ) -> void:
 	Print.ptrace()
 	# if not is_instance_valid(editor_log): return
 	# EditorLog.toggle_search_bar(editor_log, toggled_on)
-	
+
 #endregion Search Bar
 
 func                        __Clickable_Links________              ()->void:pass
@@ -467,7 +465,7 @@ func editorlog_rich_paste_toggle( toggled_on : bool ) -> void:
 		if not is_instance_valid(rich_paste_factory):
 			var rich_paste_script_path:String = plugin_dir.path_join("scripts/rich_paste.gd")
 			rich_paste_factory = load(rich_paste_script_path)
-		# if still not 
+		# if still not
 		if not is_instance_valid(rich_paste_factory):
 			Print.plog(Print.LOG_ERROR, "Failure to create rich paste factory script instance")
 			return

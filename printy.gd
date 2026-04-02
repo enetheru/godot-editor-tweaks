@@ -310,7 +310,7 @@ static func print_end_frame_deferred(_physics:bool = false) -> void:
 static func ptrace() -> void:
 	if _verbosity < LOG_TRACE: return
 	var colour:String = get_colour(LOG_TRACE).to_html()
-	var call_site:Dictionary = get_stack()[-1]
+	var call_site:Dictionary = get_stack()[1]
 	var line:String = "[url='{source}:{line}'][color=57b3ff]{function}[/color][/url]".format(call_site)
 	print_rich( "[color=%s]%s[/color]" % [colour, line] )
 
