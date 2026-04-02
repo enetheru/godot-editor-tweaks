@@ -12,6 +12,8 @@ class_name EneLog
 ## [color=goldenrod]TODO[/color]: Consider using hint bbcode to add more detail[br]
 ## [b]      eg.[hint="{tooltip text displayed on hover}"]{text}[/hint][br]
 
+const TWEAK_OPTS = preload("uid://dhpivfj5v8omf")
+
 const MAX_INT:int = 0x7FFF_FFFF_FFFF_FFFF
 const MIN_INT:int = -0x8000_0000_0000_0000
 
@@ -152,17 +154,6 @@ static var styles:Dictionary[StringName, Dictionary] = {
 	&'TRUE': {&'icon':" ", &'color':"lime_green"},
 	&'FALSE':{&'icon':" ", &'color':"tomato"},
 }
-
-
-# log levels
-static var _es := EditorInterface.get_editor_settings()
-static var color_notice_critical:Color = _es.get_setting("text_editor/theme/highlighting/comment_markers/critical_color")
-static var color_notice_error:Color = _es.get_setting("text_editor/theme/highlighting/comment_markers/critical_color")
-static var color_notice_warning:Color = _es.get_setting("text_editor/theme/highlighting/comment_markers/warning_color")
-static var color_notice_notice:Color = _es.get_setting("text_editor/theme/highlighting/comment_markers/notice_color")
-static var color_notice_debug:Color = _es.get_setting("text_editor/theme/highlighting/doc_comment_color")
-static var color_notice_trace:Color = _es.get_setting("text_editor/theme/highlighting/comment_color")
-
 
 static var header_color_mutex := Mutex.new()
 static var header_color:Dictionary[String, Color] = {}
@@ -379,13 +370,13 @@ static func get_zero_int() -> int: return 0
 
 ## Match the flag of most importance
 static func get_colour(type:int) -> Color:
-	if type & LOG_CRITICAL: return color_notice_critical
-	if type & LOG_ERROR:    return color_notice_error
-	if type & LOG_WARNING:  return color_notice_warning
-	if type & LOG_DEFAULT:  return color_notice_notice
-	if type & LOG_NOTICE:   return color_notice_notice
-	if type & LOG_DEBUG:    return color_notice_debug
-	if type & LOG_TRACE:    return color_notice_trace
+	if type & LOG_CRITICAL: return TWEAK_OPTS.color_notice_critical
+	if type & LOG_ERROR:    return TWEAK_OPTS.color_notice_error
+	if type & LOG_WARNING:  return TWEAK_OPTS.color_notice_warning
+	if type & LOG_DEFAULT:  return TWEAK_OPTS.color_notice_notice
+	if type & LOG_NOTICE:   return TWEAK_OPTS.color_notice_notice
+	if type & LOG_DEBUG:    return TWEAK_OPTS.color_notice_debug
+	if type & LOG_TRACE:    return TWEAK_OPTS.color_notice_trace
 	return Color.DEEP_PINK
 
 #               ███████ ████████ ██████  ██ ███    ██  ██████                  #

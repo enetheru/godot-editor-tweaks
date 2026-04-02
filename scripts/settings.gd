@@ -136,10 +136,10 @@ func                        ________OVERRIDES________              ()->void:pass
 func _init( target:Object, prefix:String = "plugin/un-named" )-> void:
 	_prefix = prefix
 	_target = target
-	
+
 	var target_path:String = _target.get_script().resource_path
 	_target_file = target_path.get_file()
-	
+
 	add_target_properties()
 
 	# when plugins are disabled, they are deleted.
@@ -158,19 +158,19 @@ func                        _________METHODS_________              ()->void:pass
 ## Add all the properties as settings
 func add_target_properties() -> void:
 	Print.plog( LogLevel.TRACE, "add_target_properties")
-	
+
 	var category:String
 	var group:String
 	var group_prefix:String
 	var subgroup:String
 	var subgroup_prefix:String
-	
+
 	var is_inside_script:bool = false
-	
+
 	# From observations of how the existing grouping works in the inspector.
 	# If a group or subgroup prefix exists, and is not used in a property name
 	# then the flow is broken, and the grouping and grouping prefix tags are reset.
-	
+
 	for property:Dictionary in _target.get_property_list():
 		var property_name:String = property.name
 		Print.plog( LogLevel.TRACE, "\nproperty.name: ", property_name)
@@ -180,16 +180,16 @@ func add_target_properties() -> void:
 		Print.plog( LogLevel.TRACE, "property.hint: ", Print.HintEnum.find_key(property_hint))
 		var hint_string:String = property.hint_string
 		Print.plog( LogLevel.TRACE, "property.hint_string: ", hint_string)
-		
+
 		var usage:int = property.usage
 		var usage_bits := Print.bitmask_array(usage, 30)
 		var usage_flags := Print.get_usage_flags(usage_bits)
 		Print.plog( LogLevel.TRACE, "property.usage: ",  usage_flags )
-		
+
 		var property_value:Variant = _target.get(property_name)
 		Print.plog( LogLevel.TRACE, "value: ",  property_value )
-		
-		
+
+
 		if property.usage & PROPERTY_USAGE_CATEGORY:
 			# When the category that matches the script name shows up, then we
 			# are looking at our exported variables.
@@ -198,36 +198,36 @@ func add_target_properties() -> void:
 				category = "" # We dont want to keep the main category
 				continue
 			if not is_inside_script: continue
-			
+
 			category = property_name
 			group = ""
 			group_prefix = ""
 			subgroup = ""
 			subgroup_prefix = ""
 			continue
-		
+
 		if not is_inside_script: continue
-			
+
 		if property.usage & PROPERTY_USAGE_GROUP:
 			group = property_name
 			group_prefix = hint_string
 			subgroup = ""
 			subgroup_prefix = ""
 			continue
-		
+
 		if property.usage & PROPERTY_USAGE_SUBGROUP:
 			subgroup = property_name
 			subgroup_prefix = hint_string
 			continue
-		
+
 		# Skip any setting that doesnt have the store flag.
 		if not (usage & PROPERTY_USAGE_STORAGE):
 			continue
-		
+
 		var group_level:int = 0 # top level
 		var trimmed:bool = false
 		var setting_name:String
-		
+
 		# failure to match a prefix reset's the prefix for that level.
 		if subgroup and subgroup_prefix:
 			if property_name.begins_with(subgroup_prefix):
@@ -239,7 +239,7 @@ func add_target_properties() -> void:
 				subgroup_prefix = ""
 		elif subgroup:
 			group_level = 2
-				
+
 		if group_level == 0:
 			if group_prefix:
 				if property_name.begins_with(group_prefix):
@@ -251,19 +251,19 @@ func add_target_properties() -> void:
 					group_prefix = ""
 			elif group:
 				group_level = 1
-		
+
 		if group_level == 0:
 			setting_name = property_name
-		
+
 		var parts:Array = [_prefix]
 		if category: parts.append(category)
 		if group_level > 0:
 			parts.append(group)
 			if group_level > 1: parts.append(subgroup)
-			
+
 		var setting_path:String = '/'.join(parts)
 		var setting_full:String = setting_path.path_join(setting_name)
-		
+
 		Print.plog( LogLevel.TRACE, "Category: ", category)
 		Print.plog( LogLevel.TRACE, "Group: ", [group, group_prefix])
 		Print.plog( LogLevel.TRACE, "SubGroup: ", [subgroup, subgroup_prefix])
@@ -272,7 +272,7 @@ func add_target_properties() -> void:
 		Print.plog( LogLevel.TRACE, "Setting Path: ", setting_path)
 		Print.plog( LogLevel.TRACE, "Setting Name: ", setting_name)
 		Print.plog( LogLevel.TRACE, "Setting_full: ", setting_full)
-		
+
 		# Handle TOOL_BUTTON hint
 		if property_value \
 		and property_type == TYPE_CALLABLE \
@@ -281,7 +281,7 @@ func add_target_properties() -> void:
 			var button_func:Callable = property_value
 			add_callable_as_button(setting_name, button_func, hint_string )
 			continue
-		
+
 		# NOTE: if the name has been trimmed due to grouping prefixes, then we cant
 		# derive the name from the settings path without additional info.
 		# so we keep the original in a map
@@ -355,7 +355,7 @@ static func get_all_plugins_info( only_loaded:bool = false) -> Array[Dictionary]
 	if err != OK:
 		push_warning("%S.list_dir_begin() (Error: %s)" % [dir, error_string(err)])
 		return plugins_info
-		
+
 	var folder_name: String = dir.get_next()
 	while folder_name != "":
 		if dir.current_is_dir():
@@ -371,7 +371,7 @@ static func get_all_plugins_info( only_loaded:bool = false) -> Array[Dictionary]
 				if err != OK:
 					push_warning("Failed to load " + cfg_path + " (error: " + error_string(err) + ")")
 					folder_name = dir.get_next(); continue
-					
+
 				var config_props: Dictionary = {}
 
 				var keys: PackedStringArray = config.get_section_keys("plugin")
@@ -413,7 +413,7 @@ static func erase_prefix( prefix:String ) -> void:
 		# ignore properties outside of our prefix.
 		var setting_name:String = property.get(&'name')
 		if not setting_name.begins_with(prefix): continue
-		
+
 		# CALLABLES aren't serialisable, but we are unable to change the usage flags.
 		# if we try to erase it here we get following error
 		# ERROR: property(settings-helper_rebuild) invalid for target(FlatBuffers)

@@ -2,7 +2,6 @@
 extends Resource
 class_name TweakOptions
 
-
 @export
 ## A variable to help me turn on and off debug features and tests.
 var debug:bool = false
@@ -41,6 +40,25 @@ var enable_output_search_bar:bool = false
 @export
 var enable_clickable_url_links:bool = false
 
+# log Colours
+@export_group("Colours", "color_")
+@export
+var color_notice_critical:Color
+
+@export
+var color_notice_error:Color
+
+@export
+var color_notice_warning:Color
+
+@export
+var color_notice_notice:Color
+
+@export
+var color_notice_debug:Color
+
+@export
+var color_notice_trace:Color
 
 #endregion Output Log
 
@@ -64,7 +82,7 @@ var use_monospace_glyphs : bool = false
 @export
 var add_rich_paste:bool = false
 
-@export 
+@export
 var enable_linespacing_tweaks:bool = false
 
 @export
@@ -74,3 +92,20 @@ var adjust_linespacing_above : int = 0
 var adjust_linespacing_below : int = 0
 
 #endregion Code Editor
+
+
+func _init() -> void:
+	if Engine.is_editor_hint():
+		var _es := EditorInterface.get_editor_settings()
+		if color_notice_critical == Color.BLACK:
+			color_notice_critical = _es.get_setting("text_editor/theme/highlighting/comment_markers/critical_color")
+		if color_notice_error == Color.BLACK:
+			color_notice_error = _es.get_setting("text_editor/theme/highlighting/comment_markers/critical_color")
+		if color_notice_warning == Color.BLACK:
+			color_notice_warning = _es.get_setting("text_editor/theme/highlighting/comment_markers/warning_color")
+		if color_notice_notice == Color.BLACK:
+			color_notice_notice = _es.get_setting("text_editor/theme/highlighting/comment_markers/notice_color")
+		if color_notice_debug == Color.BLACK:
+			color_notice_debug = _es.get_setting("text_editor/theme/highlighting/doc_comment_color")
+		if color_notice_trace == Color.BLACK:
+			color_notice_trace = _es.get_setting("text_editor/theme/highlighting/comment_color")
