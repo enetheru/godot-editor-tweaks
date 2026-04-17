@@ -1038,22 +1038,23 @@ static var trace_class_disabled:bool = false
 
 func trace( args:Dictionary = {}, object:Object = self, stack:Array = [] ) -> void:
 	if EneLog.disabled or trace_class_disabled or trace_disabled: return
-	if stack.is_empty(): stack = EneLog.get_stack_popped(1)
+	if stack.is_empty(): stack = Core.get_stack2(1)
 	EneLog.trace( args, stack, object )
 
 
 func trace_detail( content:Variant, object:Object = null, stack:Array = [] ) -> void:
 	if EneLog.disabled or trace_class_disabled or trace_disabled: return
-	if stack.is_empty(): stack = EneLog.get_stack_popped()
+	if stack.is_empty(): stack = Core.get_stack2()
 	trace_lvl( EneLog.LOG_MAX, content, object, stack)
 
 
 func trace_lvl( lvl:int, content:Variant, object:Object = null, stack:Array = [] ) -> void:
 	if (EneLog.max_level < lvl) or EneLog.disabled  \
 			or trace_class_disabled or trace_disabled: return
-	if stack.is_empty(): stack = EneLog.get_stack_popped()
+	if stack.is_empty(): stack = Core.get_stack2()
 	if content is Array:
 		var arr:Array = content
 		content = ' '.join(arr.map(str))
 	EneLog.printy( content, null, object, "", stack )
 # END_SNIPPET
+

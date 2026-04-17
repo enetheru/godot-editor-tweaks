@@ -17,6 +17,11 @@ const TWEAK_OPTS = preload("uid://dhpivfj5v8omf")
 const MAX_INT:int = 0x7FFF_FFFF_FFFF_FFFF
 const MIN_INT:int = -0x8000_0000_0000_0000
 
+const ESC = "\u001B"                             # ESC character (safe in Godot)
+const OSC_LINK_OPEN  = ESC + "]8;;"              # Start of OSC 8 hyperlink
+const OSC_ST         = ESC + "\\"                # String Terminator
+const OSC_LINK_CLOSE = ESC + "]8;;" + OSC_ST     # End of OSC 8 hyperlink
+
 enum {
 	LOG_NONE      = 0x00,
 	LOG_CRITICAL  = 0x01,
@@ -231,7 +236,9 @@ static func trace(args: Dictionary = {}, stack: Array = [], object: Object = nul
 			return format_key_value(key, args.get(key)))
 
 	var parts:Array = [
-		"[url='{source}:{line}'][color=57b3ff]{function}[/color][/url]".format(call_site),
+		link(
+			'{source}:{line}'.format(call_site),
+			'[color=57b3ff]{function}[/color]'.format(call_site)),
 		"(", ', '.join(args3), ")"
 	]
 	printy("".join(parts), [], object, "", stack)
@@ -244,6 +251,7 @@ static func printy(
 			indent: String = "",
 			custom_stack: Array[Dictionary] = [] ) -> void:
 	if disabled: return
+	OS.delay_msec(4) # let the editor catch up.
 
 	last_time = Time.get_ticks_usec()
 	last_frame = Engine.get_process_frames()
@@ -302,7 +310,8 @@ static func ptrace() -> void:
 	if _verbosity < LOG_TRACE: return
 	var colour:String = get_colour(LOG_TRACE).to_html()
 	var call_site:Dictionary = get_stack()[1]
-	var line:String = "[url='{source}:{line}'][color=57b3ff]{function}[/color][/url]".format(call_site)
+	var line:String = link('{source}:{line}'.format(call_site),
+		"[color=57b3ff]{function}[/color]".format(call_site))
 	print_rich( "[color=%s]%s[/color]" % [colour, line] )
 
 
@@ -360,13 +369,11 @@ static func add_style(style_name: StringName, new_style: Dictionary) -> void:
 	styles_mutex.unlock()
 
 
-
-
-
 static func net_is_not_valid() -> int: return false
 
 
 static func get_zero_int() -> int: return 0
+
 
 ## Match the flag of most importance
 static func get_colour(type:int) -> Color:
@@ -400,7 +407,8 @@ static func get_script_name(script: Script) -> String:
 
 ## Returns a BBCode URL link string.
 static func link( url:String, text:String = "" ) -> String:
-	return "[url='{url}']{text}[/url]".format({
+	return "[u '{osco}{url}{osct}'][url={url}]{text}[/url][/u][u '{oscc}'][/u]".format({
+		&'osco':OSC_LINK_OPEN, &'osct':OSC_ST, &'oscc':OSC_LINK_CLOSE,
 		&'url':url, &'text':(url if text.is_empty() else text) })
 
 
@@ -409,6 +417,7 @@ static func strip_bbcode(s: String) -> String:
 	if regex.compile("\\[.*?\\]") != OK:
 		return "regex error"
 	return regex.sub(s, "", true)
+
 
 # args dictionary values depending on their type.
 static func format_key_value(key:Variant, value:Variant) -> String:
@@ -420,7 +429,7 @@ static func format_key_value(key:Variant, value:Variant) -> String:
 			return "%s=[color=a1ffe0]%s[/color]" % [key, value]
 		TYPE_STRING:
 			# TODO truncate and ellipsis
-			return "%s=[color=ffeda1]%s[/color]" % [key, value]
+			return "%s=[color=ffeda1]\"%s\"[/color]" % [key, value]
 		#TYPE_VECTOR2: pass # = 5
 		#TYPE_VECTOR2I: pass # = 6
 		#TYPE_RECT2: pass # = 7
@@ -600,7 +609,11 @@ static func _apply_thread_and_proc_info(ctx: LogCtx) -> void:
 
 static func _apply_network_info(ctx: LogCtx) -> void:
 	var rpc_string := ""
-	if is_net_valid.call():
+	if (
+		Thread.is_main_thread()
+		and is_instance_valid( is_net_valid.get_object())
+		and is_net_valid.call()
+		):
 		var _net_id:int = get_net_id.call()
 		if net_id != _net_id:
 			ctx.newline = true
@@ -711,9 +724,9 @@ static func _finalize_formatting(ctx: LogCtx) -> void:
 
 	# Call site
 	if ctx.stack.size() > 1:
-		ctx.call_site = "[url='{source}:{line}'] [/url]".format(ctx.stack[1])
+		ctx.call_site = link('{source}:{line}'.format(ctx.stack[1]), ' ')
 	else:
-		ctx.call_site = "[url='{source}:{line}']󰘦 [/url]".format(ctx.stack[0] if ctx.stack else {})
+		link('{source}:{line}'.format(ctx.stack[0] if ctx.stack else {}), '󰘦 ')
 
 	# Header line (object part)
 
@@ -998,7 +1011,7 @@ static func _print_as_error(ctx: LogCtx) -> void:
 	var stack:Array = ctx.stack
 	for idx:int in range(1,stack.size()):
 		var frame:Dictionary = stack[idx]
-		print_rich("[color=salmon][url={source}:{line}]{source}:{line}[/url]:{function}[/color]".format(frame))
+		print_rich("[color=salmon]" + link("{source}:{line}".format(frame)) + ":{function}[/color]".format(frame))
 
 
 static func _print_as_warning(ctx: LogCtx) -> void:
@@ -1011,7 +1024,7 @@ static func _print_as_warning(ctx: LogCtx) -> void:
 	var stack:Array = ctx.stack
 	for idx:int in range(1,stack.size()):
 		var frame:Dictionary = stack[idx]
-		print_rich("[url={source}:{line}]{source}:{line}[/url]:{function}".format(frame))
+		print_rich(link("{source}:{line}".format(frame)) + ":{function}".format(frame))
 
 
 static func _save_stack(stack: Array) -> void:
