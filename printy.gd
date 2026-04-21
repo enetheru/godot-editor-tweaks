@@ -34,6 +34,16 @@ enum {
 	LOG_MAX       = 0x80
 }
 
+enum LogLevel {
+	SILENT = 0,
+	CRITICAL = 1,
+	ERROR = 2,
+	WARNING = 3,
+	NOTICE = 4,
+	DEBUG = 5,
+	TRACE = 6,
+}
+
 static var _verbosity:int = LOG_DEFAULT
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -459,7 +469,7 @@ static func format_key_value(key:Variant, value:Variant) -> String:
 		TYPE_DICTIONARY:
 			var d:Dictionary = value
 			if not d.is_typed():
-				return "%s=dict{%s}" % [key, d.size()]
+				return "%s=dict{%s}" % [key, "" if d.is_empty() else str(d.size())]
 			var kt:String = d.get_typed_key_class_name()
 			if kt.is_empty(): kt = type_string(d.get_typed_key_builtin())
 			var vt:String = d.get_typed_value_class_name()
@@ -468,40 +478,40 @@ static func format_key_value(key:Variant, value:Variant) -> String:
 		TYPE_ARRAY:
 			var a:Array = value
 			if not a.is_typed():
-				return "%s=Array[%s]" % [key, a.size()]
+				return "%s=Array[%s]" % [key, "" if a.is_empty() else str(a.size())]
 			var tn:StringName = a.get_typed_class_name()
 			if tn.is_empty(): tn = type_string(a.get_typed_builtin())
 			return "%s=Array<%s>[%s]" % [key, tn , a.size()]
 		TYPE_PACKED_BYTE_ARRAY:
 			var p:PackedByteArray = value
-			return "%s=bytes[%s]" % [key, p.size()]
+			return "%s=bytes[%s]" % [key, "" if p.is_empty() else str(p.size())]
 		TYPE_PACKED_INT32_ARRAY:
 			var p:PackedInt32Array = value
-			return "%s=int[%s]" % [key, p.size()]
+			return "%s=int[%s]" % [key, "" if p.is_empty() else str(p.size())]
 		TYPE_PACKED_INT64_ARRAY:
 			var p:PackedInt64Array = value
-			return "%s=int64[%s]" % [key, p.size()]
+			return "%s=int64[%s]" % [key, "" if p.is_empty() else str(p.size())]
 		TYPE_PACKED_FLOAT32_ARRAY:
 			var p:PackedFloat32Array = value
-			return "%s=float[%s]" % [key, p.size()]
+			return "%s=float[%s]" % [key, "" if p.is_empty() else str(p.size())]
 		TYPE_PACKED_FLOAT64_ARRAY:
 			var p:PackedFloat64Array = value
-			return "%s=double[%s]" % [key, p.size()]
+			return "%s=double[%s]" % [key, "" if p.is_empty() else str(p.size())]
 		TYPE_PACKED_STRING_ARRAY:
 			var p:PackedStringArray = value
-			return "%s=string[%s]" % [key, p.size()]
+			return "%s=string[%s]" % [key, "" if p.is_empty() else str(p.size())]
 		TYPE_PACKED_VECTOR2_ARRAY:
 			var p:PackedVector2Array = value
-			return "%s=vec2[%s]" % [key, p.size()]
+			return "%s=vec2[%s]" % [key, "" if p.is_empty() else str(p.size())]
 		TYPE_PACKED_VECTOR3_ARRAY:
 			var p:PackedVector3Array = value
-			return "%s=vec3[%s]" % [key, p.size()]
+			return "%s=vec3[%s]" % [key, "" if p.is_empty() else str(p.size())]
 		TYPE_PACKED_COLOR_ARRAY:
 			var p:PackedColorArray = value
-			return "%s=color[%s]" % [key, p.size()]
+			return "%s=color[%s]" % [key, "" if p.is_empty() else str(p.size())]
 		TYPE_PACKED_VECTOR4_ARRAY:
 			var p:PackedVector4Array = value
-			return "%s=vec4[%s]" % [key, p.size()]
+			return "%s=vec4[%s]" % [key, "" if p.is_empty() else str(p.size())]
 		_: return str(key) + "=" + str(value)
 
 	# Only Object falls through.

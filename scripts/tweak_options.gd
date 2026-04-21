@@ -2,6 +2,16 @@
 extends Resource
 class_name TweakOptions
 
+enum LogLevel {
+	SILENT = 0,
+	CRITICAL = 1,
+	ERROR = 2,
+	WARNING = 3,
+	NOTICE = 4,
+	DEBUG = 5,
+	TRACE = 6,
+}
+
 @export
 ## A variable to help me turn on and off debug features and tests.
 var debug:bool = false
@@ -61,6 +71,16 @@ var color_notice_debug:Color
 var color_notice_trace:Color
 
 #endregion Output Log
+func get_colour( lvl:int ) -> Color:
+	match lvl:
+		LogLevel.CRITICAL: return color_notice_critical
+		LogLevel.ERROR: return color_notice_error
+		LogLevel.WARNING: return color_notice_warning
+		LogLevel.NOTICE: return color_notice_notice
+		LogLevel.DEBUG: return color_notice_debug
+		LogLevel.TRACE: return color_notice_trace
+
+	return Color.WHITE
 
 
 func                        __Code_Editor____________              ()->void:pass

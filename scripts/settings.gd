@@ -91,7 +91,7 @@
 ## very brute force.
 ## https://github.com/PiCode9560/Godot-Editor-Settings-Description/blob/main/editor_settings_description.gd
 
-const Print = preload("uid://cbluyr4ifn8g3")
+const Print = preload("uid://hetq57iwhpjm")
 const LogLevel = Print.LogLevel
 
 
