@@ -75,7 +75,8 @@ class LogCtx:
 	var proc:String
 	var proc_color:String = Color(0.4, 0.4, 0.4).to_html()
 	var proc_icon:String = " "
-	var proc_id:String = "%05d" % OS.get_process_id()
+	var proc_id:int = OS.get_process_id()
+	var thread_id:int = OS.get_thread_caller_id()
 
 	var left:String = ""
 
@@ -125,9 +126,9 @@ static var prev_stack_dist:int = 0
 
 # Filter
 static var ignore_filter:Array[String] = []
+static var thread_filter:Array = []
 
 # Process / Network
-static var proc_id:int
 static var net_id:int
 static var net_string:String
 
@@ -170,12 +171,16 @@ static var styles:Dictionary[StringName, Dictionary] = {
 	&'FALSE':{&'icon':" ", &'color':"tomato"},
 }
 
+static var thread_color_mutex := Mutex.new()
+static var thread_color:Dictionary[int, Color] = {}
+
 static var header_color_mutex := Mutex.new()
 static var header_color:Dictionary[String, Color] = {}
 
 static var type_match_mutex := Mutex.new()
 static var type_match:Array[Callable] = []
 
+static var color_dim_grey:String = Color(0.4, 0.4, 0.4).to_html()
 
 #      ██████  ██    ██ ███████ ██████  ██████  ██ ██████  ███████ ███████     #
 #     ██    ██ ██    ██ ██      ██   ██ ██   ██ ██ ██   ██ ██      ██          #
@@ -201,8 +206,6 @@ static func _static_init() -> void:
 
 	if want_enable: enable()
 	else: disable()
-
-	proc_id = OS.get_process_id()
 
 	styles_mutex.lock()
 	styles[&"[H1]"] = {
@@ -236,6 +239,7 @@ func                        __________PRINT__________              ()->void:pass
 
 static func trace(args: Dictionary = {}, stack: Array = [], object: Object = null) -> void:
 	if disabled: return
+	if OS.get_thread_caller_id() in thread_filter: return
 	if stack.is_empty():
 		stack = get_stack()
 		stack.pop_front()
@@ -261,6 +265,7 @@ static func printy(
 			indent: String = "",
 			custom_stack: Array[Dictionary] = [] ) -> void:
 	if disabled: return
+	if OS.get_thread_caller_id() in thread_filter:return
 	OS.delay_msec(4) # let the editor catch up.
 
 	last_time = Time.get_ticks_usec()
@@ -318,6 +323,7 @@ static func print_end_frame_deferred(_physics:bool = false) -> void:
 
 static func ptrace() -> void:
 	if _verbosity < LOG_TRACE: return
+	if OS.get_thread_caller_id() in thread_filter:return
 	var colour:String = get_colour(LOG_TRACE).to_html()
 	var call_site:Dictionary = get_stack()[1]
 	var line:String = link('{source}:{line}'.format(call_site),
@@ -327,6 +333,7 @@ static func ptrace() -> void:
 
 static func plog( level:int, ...message:Array ) -> void:
 	if _verbosity < level: return
+	if OS.get_thread_caller_id() in thread_filter:return
 	var colour:String = get_colour(level).to_html()
 	var padding:String = "".lpad(get_stack().size()-1, '\t') if level == LOG_TRACE else ""
 	print_rich( padding + "[color=%s]%s[/color]" % [colour, ' '.join(message)] )
@@ -613,8 +620,16 @@ static func _compute_stack_distance(ctx: LogCtx) -> void:
 
 
 static func _apply_thread_and_proc_info(ctx: LogCtx) -> void:
-	var is_thread:bool = OS.get_thread_caller_id() != OS.get_main_thread_id()
-	ctx.proc_icon = " " if is_thread else " "
+	if ctx.thread_id == OS.get_main_thread_id():
+		# Main Thread
+		ctx.proc_icon = ""
+		ctx.proc_color = "yellow"
+	else:
+		thread_color_mutex.lock()
+		var col:Color = thread_color.get_or_add(ctx.thread_id, Enetheru.colour.random())
+		thread_color_mutex.unlock()
+		ctx.proc_color = col.to_html()
+		ctx.proc_icon = ""
 
 
 static func _apply_network_info(ctx: LogCtx) -> void:
@@ -718,11 +733,14 @@ static func _apply_style(ctx: LogCtx) -> void:
 static func _finalize_formatting(ctx: LogCtx) -> void:
 	# proc
 	#ctx.proc = "[color={proc_c}]{proc_i}{proc_p}[/color]".format(ctx)
-	ctx.proc = "[color=%s]%s%s[/color]" % [
-		ctx.proc_color,
+	ctx.proc = ''.join([
+		"%05d|" % Engine.get_frames_drawn(),
+		"[color=%s]%05d[/color]" % [color_dim_grey, ctx.proc_id],
+		"[color=%s]" % ctx.proc_color,
 		ctx.proc_icon,
-		ctx.proc_id,
-		]
+		"%02d" % ctx.thread_id,
+		"[/color]",
+		])
 
 
 	ctx.left = "|".join([
