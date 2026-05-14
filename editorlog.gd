@@ -1033,8 +1033,12 @@ func                        __________TRACE__________              ()->void:pass
 # │  |_||_| \__,_\__|_|_||_\__, |
 # ╰────────────────────────|___/───
 @export_group('Trace')
-@export var trace_disabled:bool = false
+@export var trace_disabled:bool = true
 static var trace_class_disabled:bool = false
+
+# calls to enable propagation.
+func disable_trace() -> void: trace_disabled = true
+func enable_trace() -> void: trace_disabled = false
 
 func trace( args:Dictionary = {}, object:Object = self, stack:Array = [] ) -> void:
 	if EneLog.disabled or trace_class_disabled or trace_disabled: return
@@ -1055,6 +1059,8 @@ func trace_lvl( lvl:int, content:Variant, object:Object = null, stack:Array = []
 	if content is Array:
 		var arr:Array = content
 		content = ' '.join(arr.map(str))
+	if lvl < Core.LogLevel.NOTICE:
+		content = Core.LogLevel.find_key(lvl) + ": " + content
 	EneLog.printy( content, null, object, "", stack )
 # END_SNIPPET
 
