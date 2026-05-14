@@ -519,12 +519,24 @@ static func format_key_value(key:Variant, value:Variant) -> String:
 		TYPE_PACKED_VECTOR4_ARRAY:
 			var p:PackedVector4Array = value
 			return "%s=vec4[%s]" % [key, "" if p.is_empty() else str(p.size())]
-		_: return str(key) + "=" + str(value)
+		_:
+			return str(key) + "= %s(%s)" % [str(value), type_string(type_val)]
+
 
 	# Only Object falls through.
 	if value is Resource:
 		var r:Resource = value
-		return "%s=%s" % [key, link( r.resource_path, r.resource_path.get_file())]
+		if not r.resource_path.is_empty():
+			var link:String = link( r.resource_path, r.resource_path.get_file())
+			return "%s=%s" % [key, link]
+
+		var r_script:Script = r.get_script()
+		if r_script:
+			var script_name:String = get_script_name(r_script)
+			var link:String = link( r_script.resource_path, script_name)
+			return "%s=%s" % [key, link]
+		return "%s=%s" % [key, r]
+
 	if value is Node:
 		return str(key) + "=" + value.name
 
