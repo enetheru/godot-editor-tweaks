@@ -17,34 +17,24 @@ const TWEAK_OPTS = preload("uid://dhpivfj5v8omf")
 const MAX_INT:int = 0x7FFF_FFFF_FFFF_FFFF
 const MIN_INT:int = -0x8000_0000_0000_0000
 
-const ESC = "\u001B"                             # ESC character (safe in Godot)
-const OSC_LINK_OPEN  = ESC + "]8;;"              # Start of OSC 8 hyperlink
-const OSC_ST         = ESC + "\\"                # String Terminator
-const OSC_LINK_CLOSE = ESC + "]8;;" + OSC_ST     # End of OSC 8 hyperlink
-
-enum {
-	LOG_NONE      = 0x00,
-	LOG_CRITICAL  = 0x01,
-	LOG_ERROR     = 0x02,
-	LOG_WARNING   = 0x04,
-	LOG_DEFAULT   = 0x08,
-	LOG_NOTICE    = 0x10,
-	LOG_DEBUG     = 0x20,
-	LOG_TRACE     = 0x40,
-	LOG_MAX       = 0x80
-}
+const ESC: String            = "\u001B"                  # ESC character (safe in Godot)
+const OSC_LINK_OPEN: String  = ESC + "]8;;"              # Start of OSC 8 hyperlink
+const OSC_ST: String         = ESC + "\\"                # String Terminator
+const OSC_LINK_CLOSE: String = ESC + "]8;;" + OSC_ST     # End of OSC 8 hyperlink
 
 enum LogLevel {
-	SILENT = 0,
-	CRITICAL = 1,
-	ERROR = 2,
-	WARNING = 3,
-	NOTICE = 4,
-	DEBUG = 5,
-	TRACE = 6,
+	SILENT   = 0x00,
+	CRITICAL = 0x01,
+	ERROR    = 0x02,
+	WARNING  = 0x04,
+	DEFAULT  = 0x08,
+	NOTICE   = 0x10,
+	DEBUG    = 0x20,
+	TRACE    = 0x40,
+	MASK     = 0xFF
 }
 
-static var _verbosity:int = LOG_DEFAULT
+static var _verbosity:int = LogLevel.DEFAULT
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Per-call logging context
@@ -107,7 +97,7 @@ func                        ________PROPERTIES_______              ()->void:pass
 # ─────────────────────────────────────────────────────────────────────────────
 
 static var disabled:bool = false
-static var max_level:int = LOG_MAX
+static var max_level:int = LogLevel.MASK # aka all logging
 static var reset:bool = true
 static var top_level:bool = true
 
@@ -192,7 +182,7 @@ func                        ________OVERRIDES________              ()->void:pass
 static func _static_init() -> void:
 	var want_enable:bool = false
 
-	var user_args:Array = OS.get_cmdline_user_args()
+	var user_args:PackedStringArray = OS.get_cmdline_user_args()
 	for arg_idx:int in range( user_args.size() ):
 		var arg:String = user_args[arg_idx]
 		if arg == "--trace":
@@ -245,7 +235,7 @@ static func trace(args: Dictionary = {}, stack: Array = [], object: Object = nul
 		stack.pop_front()
 	var call_site:Dictionary = stack.front()
 
-	var args3:PackedStringArray = args.keys().map(
+	var args3:Array = args.keys().map(
 		func(key:Variant) -> String:
 			return format_key_value(key, args.get(key)))
 
@@ -322,9 +312,9 @@ static func print_end_frame_deferred(_physics:bool = false) -> void:
 
 
 static func ptrace() -> void:
-	if _verbosity < LOG_TRACE: return
+	if _verbosity < LogLevel.TRACE: return
 	if OS.get_thread_caller_id() in thread_filter:return
-	var colour:String = get_colour(LOG_TRACE).to_html()
+	var colour:String = get_colour(LogLevel.TRACE).to_html()
 	var call_site:Dictionary = get_stack()[1]
 	var line:String = link('{source}:{line}'.format(call_site),
 		"[color=57b3ff]{function}[/color]".format(call_site))
@@ -335,7 +325,7 @@ static func plog( level:int, ...message:Array ) -> void:
 	if _verbosity < level: return
 	if OS.get_thread_caller_id() in thread_filter:return
 	var colour:String = get_colour(level).to_html()
-	var padding:String = "".lpad(get_stack().size()-1, '\t') if level == LOG_TRACE else ""
+	var padding:String = "".lpad(get_stack().size()-1, '\t') if level == LogLevel.TRACE else ""
 	print_rich( padding + "[color=%s]%s[/color]" % [colour, ' '.join(message)] )
 
 
@@ -386,7 +376,7 @@ static func add_style(style_name: StringName, new_style: Dictionary) -> void:
 	styles_mutex.unlock()
 
 
-static func net_is_not_valid() -> int: return false
+static func net_is_not_valid() -> bool: return false
 
 
 static func get_zero_int() -> int: return 0
@@ -394,13 +384,13 @@ static func get_zero_int() -> int: return 0
 
 ## Match the flag of most importance
 static func get_colour(type:int) -> Color:
-	if type & LOG_CRITICAL: return TWEAK_OPTS.color_notice_critical
-	if type & LOG_ERROR:    return TWEAK_OPTS.color_notice_error
-	if type & LOG_WARNING:  return TWEAK_OPTS.color_notice_warning
-	if type & LOG_DEFAULT:  return TWEAK_OPTS.color_notice_notice
-	if type & LOG_NOTICE:   return TWEAK_OPTS.color_notice_notice
-	if type & LOG_DEBUG:    return TWEAK_OPTS.color_notice_debug
-	if type & LOG_TRACE:    return TWEAK_OPTS.color_notice_trace
+	if type & LogLevel.TRACE:    return TWEAK_OPTS.color_notice_trace
+	if type & LogLevel.DEBUG:    return TWEAK_OPTS.color_notice_debug
+	if type & LogLevel.NOTICE:   return TWEAK_OPTS.color_notice_notice
+	if type & LogLevel.DEFAULT:  return TWEAK_OPTS.color_notice_notice
+	if type & LogLevel.WARNING:  return TWEAK_OPTS.color_notice_warning
+	if type & LogLevel.ERROR:    return TWEAK_OPTS.color_notice_error
+	if type & LogLevel.CRITICAL: return TWEAK_OPTS.color_notice_critical
 	return Color.DEEP_PINK
 
 #               ███████ ████████ ██████  ██ ███    ██  ██████                  #
@@ -663,7 +653,7 @@ static func _apply_network_info(ctx: LogCtx) -> void:
 			if node.is_inside_tree():
 				sender_id = node.multiplayer.get_remote_sender_id()
 		if sender_id > 0:
-			rpc_string = '[color=cornflower_blue]󰏴 %s[/color]' % ("%016X"%sender_id).right(4)
+			rpc_string = '[color=cornflower_blue]󰏴 %s[/color]' % [("%016X" % sender_id).right(4)]
 
 	ctx.net = "      " if net_string.is_empty() else net_string
 	ctx.rpc = "      " if rpc_string.is_empty() else rpc_string
@@ -1046,7 +1036,7 @@ static func _print_as_error(ctx: LogCtx) -> void:
 		"[pulse freq=2 color=#FFFFFF70]",
 		ctx.left, ctx.msg_icon, ctx.flow, ctx.call_site, ctx.header,
 		"[color=red]", strip_bbcode(ctx.msg), "[/color]",
-        "[/pulse]"
+		"[/pulse]"
 	]))
 	var stack:Array = ctx.stack
 	for idx:int in range(1,stack.size()):
@@ -1059,7 +1049,7 @@ static func _print_as_warning(ctx: LogCtx) -> void:
 		"[pulse freq=2 color=gold]",
 		ctx.left, ctx.msg_icon, ctx.flow, ctx.call_site, ctx.header,
 		"[color=yellow]", strip_bbcode(ctx.msg), "[/color]",
-        "[/pulse]"
+		"[/pulse]"
 	]))
 	var stack:Array = ctx.stack
 	for idx:int in range(1,stack.size()):

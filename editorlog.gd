@@ -1049,7 +1049,7 @@ func trace( args:Dictionary = {}, object:Object = self, stack:Array = [] ) -> vo
 func trace_detail( content:Variant, object:Object = null, stack:Array = [] ) -> void:
 	if EneLog.disabled or trace_class_disabled or trace_disabled: return
 	if stack.is_empty(): stack = Core.get_stack2()
-	trace_lvl( EneLog.LOG_MAX, content, object, stack)
+	trace_lvl( EneLog.LogLevel.TRACE, content, object, stack)
 
 
 func trace_lvl( lvl:int, content:Variant, object:Object = null, stack:Array = [] ) -> void:

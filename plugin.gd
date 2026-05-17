@@ -50,7 +50,7 @@ func _on_editorlog_link_clicked( meta : Variant ) -> void:
 	var url : String = meta
 	if not url: return
 	if not "://" in url:
-		Print.plog(Print.LOG_DEFAULT, "url: %s" % url)
+		Print.plog(Print.LogLevel.DEFAULT, "url: %s" % url)
 		return
 	if url.begins_with("res://"):
 		var parts : PackedStringArray = url.split(':')
@@ -66,14 +66,14 @@ func _on_editorlog_link_clicked( meta : Variant ) -> void:
 			_:
 				EditorInterface.edit_resource(load(url))
 	else:
-		Print.plog(Print.LOG_DEFAULT, "url: %s" % url)
+		Print.plog(Print.LogLevel.DEFAULT, "url: %s" % url)
 		@warning_ignore('return_value_discarded')
 		OS.shell_open( url )
 
 #TODO  I want a setting path in here too so that if a setting fails, it can be reverted.
 func _on_project_settings_changed(
 			setting_name:String, setting_value:Variant ) -> void:
-	Print.plog(Print.LOG_TRACE, ''.join([setting_name, ':', setting_value]))
+	Print.plog(Print.LogLevel.TRACE, ''.join([setting_name, ':', setting_value]))
 	var b:bool
 	match typeof(setting_value):
 		TYPE_BOOL: b = setting_value
@@ -117,7 +117,7 @@ func _init() -> void:
 	icons_dump = Self.dump_icons
 	colours_dump = Self.dump_colours
 
-	Print.plog( Print.LOG_DEBUG, "%s._init() - Completed" % name )
+	Print.plog( Print.LogLevel.DEBUG, "%s._init() - Completed" % name )
 
 
 func _enter_tree() -> void:
@@ -144,7 +144,7 @@ func _get_plugin_name() -> String:
 
 
 #func _get_plugin_icon() -> Texture2D:
-	#Print.plog( Print.LOG_TRACE, "%s._get_plugin_icon()" % name )
+	#Print.plog( Print.LogLevel.TRACE, "%s._get_plugin_icon()" % name )
 	#return ICON_BW_TINY
 
 
@@ -165,11 +165,11 @@ func                        _________METHODS_________              ()->void:pass
 
 
 func enable_experimental_features() -> void:
-	Print.plog( Print.LOG_DEBUG, "enable_experimental_features" )
+	Print.plog( Print.LogLevel.DEBUG, "enable_experimental_features" )
 
 
 func disable_experimental_features() -> void:
-	Print.plog( Print.LOG_DEBUG, "disable_experimental_features" )
+	Print.plog( Print.LogLevel.DEBUG, "disable_experimental_features" )
 
 
 static var editor_log:Control
@@ -221,7 +221,7 @@ static func get_code_font() -> FontVariation:
 	var editor_theme:Theme = EditorInterface.get_editor_theme()
 	var code_edit_font:FontVariation = editor_theme.get_font("font", "CodeEdit")
 	if is_instance_valid(code_edit_font): return code_edit_font
-	Print.plog(Print.LOG_ERROR, "Unable to find CodeEdit font in editor theme")
+	Print.plog(Print.LogLevel.ERROR, "Unable to find CodeEdit font in editor theme")
 	return null
 
 
@@ -242,8 +242,8 @@ func monospace_glyphs_toggle( toggled_on : bool ) -> void:
 	var output_rtl:RichTextLabel = get_output_rtl()
 	if not is_instance_valid(output_rtl): return
 	if toggled_on:
-		Print.plog(Print.LOG_DEFAULT, "Enable Monospace Font Glyphs Fixes")
-		Print.plog(Print.LOG_DEFAULT, "object instance ID: %X" % get_instance_id() )
+		Print.plog(Print.LogLevel.DEFAULT, "Enable Monospace Font Glyphs Fixes")
+		Print.plog(Print.LogLevel.DEFAULT, "object instance ID: %X" % get_instance_id() )
 		#var font : Font = code_edit_font.base_font
 		#print( code_edit_font.get_supported_chars())
 		#print(JSON.stringify(font.get_supported_feature_list(), "  ", false) )
@@ -280,7 +280,7 @@ func monospace_glyphs_toggle( toggled_on : bool ) -> void:
 
 
 	else:
-		Print.plog(Print.LOG_DEFAULT, "Disable Monospace Font Glyphs Fixes")
+		Print.plog(Print.LogLevel.DEFAULT, "Disable Monospace Font Glyphs Fixes")
 
 #endregion Monospaced Font
 
@@ -304,7 +304,7 @@ func linespacing_toggle( toggle_on:bool ) -> void:
 	was_enabled = toggle_on
 	var code_font:FontVariation = get_code_font()
 	if not code_font:
-		Print.plog(Print.LOG_ERROR, "Unable to get font:CodeEdit from editor theme.")
+		Print.plog(Print.LogLevel.ERROR, "Unable to get font:CodeEdit from editor theme.")
 		return
 	code_font.spacing_top = opts.adjust_linespacing_above if toggle_on else -1
 	code_font.spacing_bottom = opts.adjust_linespacing_below if toggle_on else -1
@@ -332,8 +332,8 @@ func                        __Ligatures______________              ()->void:pass
 ## Ligatures Description
 func editorlog_ligatures_toggle( toggled_on : bool ) -> void:
 	Print.ptrace()
-	if toggled_on: Print.plog(Print.LOG_DEFAULT, "Enable EditorLog Ligatures")
-	else: Print.plog(Print.LOG_DEFAULT, "Disable EditorLog Ligatures")
+	if toggled_on: Print.plog(Print.LogLevel.DEFAULT, "Enable EditorLog Ligatures")
+	else: Print.plog(Print.LogLevel.DEFAULT, "Disable EditorLog Ligatures")
 	var editor_theme:Theme = EditorInterface.get_editor_theme()
 	for font_name in editorlog_font_names:
 		var font : FontVariation = editor_theme.get_font(font_name, "EditorFonts")
@@ -361,10 +361,10 @@ func editorlog_rotate_toggle( _toggled_on : bool ) -> void:
 	# if not is_instance_valid(sideways_effect): return
 
 	# if toggled_on:
-		# Print.plog(Print.LOG_DEFAULT, "Enable EditorLog Sideways Text Effect")
+		# Print.plog(Print.LogLevel.DEFAULT, "Enable EditorLog Sideways Text Effect")
 		# output_rtl.install_effect(sideways_effect)
 	# else:
-		# Print.plog(Print.LOG_DEFAULT, "Disable EditorLog Sideways Text Effect")
+		# Print.plog(Print.LogLevel.DEFAULT, "Disable EditorLog Sideways Text Effect")
 		# if sideways_effect in output_rtl.custom_effects:
 			# output_rtl.custom_effects.erase(sideways_effect)
 #endregion BBCode Rotate
@@ -467,19 +467,19 @@ func editorlog_rich_paste_toggle( toggled_on : bool ) -> void:
 			rich_paste_factory = load(rich_paste_script_path)
 		# if still not
 		if not is_instance_valid(rich_paste_factory):
-			Print.plog(Print.LOG_ERROR, "Failure to create rich paste factory script instance")
+			Print.plog(Print.LogLevel.ERROR, "Failure to create rich paste factory script instance")
 			return
-		Print.plog(Print.LOG_DEFAULT, "Creating Rich Paste ContextMenuPlugin")
+		Print.plog(Print.LogLevel.DEFAULT, "Creating Rich Paste ContextMenuPlugin")
 		rich_paste_cm = rich_paste_factory.call(&'create_rich_paste_cm')
 		if not is_instance_valid(rich_paste_cm):
-			Print.plog(Print.LOG_ERROR, "Error: Creation of Rich Paste ContextMenuPlugin Failed")
+			Print.plog(Print.LogLevel.ERROR, "Creation of Rich Paste ContextMenuPlugin Failed")
 			return
 		add_context_menu_plugin(
 			EditorContextMenuPlugin.ContextMenuSlot.CONTEXT_SLOT_SCRIPT_EDITOR_CODE,
 			rich_paste_cm )
 	else:
 		if is_instance_valid(rich_paste_cm):
-			Print.plog(Print.LOG_DEFAULT, "Remve Rich Paste ContextMenuPlugin")
+			Print.plog(Print.LogLevel.DEFAULT, "Remve Rich Paste ContextMenuPlugin")
 			remove_context_menu_plugin( rich_paste_cm )
 			rich_paste_cm = null
 
