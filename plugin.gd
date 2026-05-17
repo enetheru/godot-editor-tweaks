@@ -7,8 +7,6 @@ const Self = preload('uid://setvleg6sni3')
 # loading, that way we might be able to devise a way to automatically clone
 # and update plugins like the vim lazy codebase does.
 
-func                        _________IMPORTS_________              ()->void:pass
-
 const Print = preload("uid://babswmnh2kosn")
 
 const SettingsHalpr = preload("uid://o5djwaewipdy")
@@ -92,6 +90,7 @@ func _on_project_settings_changed(
 			linespacing_toggle(opts.enable_linespacing_tweaks)
 		"adjust_linespacing_below" when opts.enable_linespacing_tweaks:
 			linespacing_toggle(opts.enable_linespacing_tweaks)
+		"make_method_trace_line": make_method_trace_line_toggle(b)
 
 
 #      ██████  ██    ██ ███████ ██████  ██████  ██ ██████  ███████ ███████     #
@@ -130,6 +129,7 @@ func _enter_tree() -> void:
 	if opts.use_monospace_glyphs:       monospace_glyphs_toggle(opts.use_monospace_glyphs)
 	if opts.add_rich_paste:             editorlog_rich_paste_toggle(opts.add_rich_paste)
 	if opts.enable_linespacing_tweaks:  linespacing_toggle(opts.enable_linespacing_tweaks)
+	if opts.make_method_trace_line:     make_method_trace_line_toggle(opts.make_method_trace_line)
 	if opts.experimental:               enable_experimental_features()
 
 
@@ -225,65 +225,12 @@ static func get_code_font() -> FontVariation:
 	return null
 
 
-func                        __Monospaced_Font________              ()->void:pass
-#region Monospaced Font
-#MARK: Monospaced Font
-##                                                                     [br]
-## │ __  __                                      _   ___        _      [br]
-## │|  \/  |___ _ _  ___ ____ __  __ _ __ ___ __| | | __|__ _ _| |_    [br]
-## │| |\/| / _ \ ' \/ _ (_-< '_ \/ _` / _/ -_) _` | | _/ _ \ ' \  _|   [br]
-## │|_|  |_\___/_||_\___/__/ .__/\__,_\__\___\__,_| |_|\___/_||_\__|   [br]
-## ╰───────────────────────|_|──────────────────────────────────────── [br]
-## Monospaced Font By-Line
-##
-## Monospaced Font Description
-func monospace_glyphs_toggle( toggled_on : bool ) -> void:
-	Print.ptrace()
-	var output_rtl:RichTextLabel = get_output_rtl()
-	if not is_instance_valid(output_rtl): return
-	if toggled_on:
-		Print.plog(Print.LogLevel.DEFAULT, "Enable Monospace Font Glyphs Fixes")
-		Print.plog(Print.LogLevel.DEFAULT, "object instance ID: %X" % get_instance_id() )
-		#var font : Font = code_edit_font.base_font
-		#print( code_edit_font.get_supported_chars())
-		#print(JSON.stringify(font.get_supported_feature_list(), "  ", false) )
-		#print(JSON.stringify(font.get_supported_variation_list(), "  ", false) )
-		#print( font.has_char("⣿".to_utf32_buffer()[0]))
-		#print( font.has_char(" ".to_utf32_buffer()[0]))
-#
-		#var ts := TextServerManager.get_primary_interface()
-#
-		#for font_name in editorlog_font_names:
-			#var font_variation : FontVariation = editor_theme.get_font(font_name, "EditorFonts")
-			#var font : Font = font_variation.base_font
-#
-			#var rid : RID
-			#for r : RID in font.get_rids():
-				#if ts.font_has_char(r, 0x28FF):
-					#rid=r
-					#print(ts.font_get_name(r))
-					#break
-			#if not rid.is_valid(): return
-			#print(ts.font_get_name(rid))
-#
-			#ts.font_set_fixed_size(rid, 18)
-			#print( ts.font_get_fixed_size(rid))
-#
-			#ts.font_set_fixed_size_scale_mode(rid, TextServer.FIXED_SIZE_SCALE_ENABLED)
-
-
-			#print( ts.font_get_glyph_size(rid,Vector2i.ONE, 0x2800-0x28FF) )
-
-
-			#print( "has ⣿:", font.has_char(ord("⣿")))
-			#print( "has \u2800:", font.has_char(0x2800))
-
-
-	else:
-		Print.plog(Print.LogLevel.DEFAULT, "Disable Monospace Font Glyphs Fixes")
-
-#endregion Monospaced Font
-
+#        ██████  ██████  ██████  ███████     ███████ ██████  ██ ████████       #
+#       ██      ██    ██ ██   ██ ██          ██      ██   ██ ██    ██          #
+#       ██      ██    ██ ██   ██ █████ █████ █████   ██   ██ ██    ██          #
+#       ██      ██    ██ ██   ██ ██          ██      ██   ██ ██    ██          #
+#        ██████  ██████  ██████  ███████     ███████ ██████  ██    ██          #
+func                        ________CODE_EDIT________              ()->void:pass
 
 func                        __Line_Spacing___________              ()->void:pass
 #region Line Spacing
@@ -310,6 +257,49 @@ func linespacing_toggle( toggle_on:bool ) -> void:
 	code_font.spacing_bottom = opts.adjust_linespacing_below if toggle_on else -1
 
 #endregion Line Spacing
+
+func                        __MethodTraceArgs________              ()->void:pass
+#region MethodTraceArgs
+#MARK: MethodTraceArgs
+##                                                                           [br]
+## │ __  __     _   _            _ _____                  _                  [br]
+## │|  \/  |___| |_| |_  ___  __| |_   _| _ __ _ __ ___  /_\  _ _ __ _ ___   [br]
+## │| |\/| / -_)  _| ' \/ _ \/ _` | | || '_/ _` / _/ -_)/ _ \| '_/ _` (_-<   [br]
+## │|_|  |_\___|\__|_||_\___/\__,_| |_||_| \__,_\__\___/_/ \_\_| \__, /__/   [br]
+## ╰─────────────────────────────────────────────────────────────|___/────── [br]
+## MethodTraceArgs By-Line
+##
+## MethodTraceArgs Description
+
+var method_trace_args_factory:Object
+var method_trace_args_cm:EditorContextMenuPlugin
+
+func make_method_trace_line_toggle( toggled_on:bool ) -> void:
+	Print.ptrace()
+	if toggled_on:
+		if not is_instance_valid(method_trace_args_factory):
+			var script_path:String = plugin_dir.path_join("scripts/method_trace_args.gd")
+			method_trace_args_factory = load(script_path)
+		if not is_instance_valid(method_trace_args_factory):
+			Print.plog(Print.LogLevel.ERROR, "Failure to create MethodTraceArgs factory script instance")
+			return
+		if is_instance_valid(method_trace_args_cm): return
+		Print.plog(Print.LogLevel.DEFAULT, "Creating MethodTraceArgs ContextMenuPlugin")
+		method_trace_args_cm = method_trace_args_factory.call(&'create_method_trace_args_cm')
+		if not is_instance_valid(method_trace_args_cm):
+			Print.plog(Print.LogLevel.ERROR, "Creation of MethodTraceArgs ContextMenuPlugin Failed")
+			return
+		add_context_menu_plugin(
+			EditorContextMenuPlugin.ContextMenuSlot.CONTEXT_SLOT_SCRIPT_EDITOR_CODE,
+			method_trace_args_cm )
+	else:
+		if is_instance_valid(method_trace_args_cm):
+			Print.plog(Print.LogLevel.DEFAULT, "Remove MethodTraceArgs ContextMenuPlugin")
+			remove_context_menu_plugin( method_trace_args_cm )
+			method_trace_args_cm = null
+
+#endregion MethodTraceArgs
+
 
 # ███████ ██████  ██ ████████  ██████  ██████        ██       ██████   ██████  #
 # ██      ██   ██ ██    ██    ██    ██ ██   ██       ██      ██    ██ ██       #
@@ -484,6 +474,66 @@ func editorlog_rich_paste_toggle( toggled_on : bool ) -> void:
 			rich_paste_cm = null
 
 #endregion RichPaste
+
+
+func                        __Monospaced_Font________              ()->void:pass
+#region Monospaced Font
+#MARK: Monospaced Font
+##                                                                     [br]
+## │ __  __                                      _   ___        _      [br]
+## │|  \/  |___ _ _  ___ ____ __  __ _ __ ___ __| | | __|__ _ _| |_    [br]
+## │| |\/| / _ \ ' \/ _ (_-< '_ \/ _` / _/ -_) _` | | _/ _ \ ' \  _|   [br]
+## │|_|  |_\___/_||_\___/__/ .__/\__,_\__\___\__,_| |_|\___/_||_\__|   [br]
+## ╰───────────────────────|_|──────────────────────────────────────── [br]
+## Monospaced Font By-Line
+##
+## Monospaced Font Description
+func monospace_glyphs_toggle( toggled_on : bool ) -> void:
+	Print.ptrace()
+	var output_rtl:RichTextLabel = get_output_rtl()
+	if not is_instance_valid(output_rtl): return
+	if toggled_on:
+		Print.plog(Print.LogLevel.DEFAULT, "Enable Monospace Font Glyphs Fixes")
+		Print.plog(Print.LogLevel.DEFAULT, "object instance ID: %X" % get_instance_id() )
+		#var font : Font = code_edit_font.base_font
+		#print( code_edit_font.get_supported_chars())
+		#print(JSON.stringify(font.get_supported_feature_list(), "  ", false) )
+		#print(JSON.stringify(font.get_supported_variation_list(), "  ", false) )
+		#print( font.has_char("⣿".to_utf32_buffer()[0]))
+		#print( font.has_char(" ".to_utf32_buffer()[0]))
+#
+		#var ts := TextServerManager.get_primary_interface()
+#
+		#for font_name in editorlog_font_names:
+			#var font_variation : FontVariation = editor_theme.get_font(font_name, "EditorFonts")
+			#var font : Font = font_variation.base_font
+#
+			#var rid : RID
+			#for r : RID in font.get_rids():
+				#if ts.font_has_char(r, 0x28FF):
+					#rid=r
+					#print(ts.font_get_name(r))
+					#break
+			#if not rid.is_valid(): return
+			#print(ts.font_get_name(rid))
+#
+			#ts.font_set_fixed_size(rid, 18)
+			#print( ts.font_get_fixed_size(rid))
+#
+			#ts.font_set_fixed_size_scale_mode(rid, TextServer.FIXED_SIZE_SCALE_ENABLED)
+
+
+			#print( ts.font_get_glyph_size(rid,Vector2i.ONE, 0x2800-0x28FF) )
+
+
+			#print( "has ⣿:", font.has_char(ord("⣿")))
+			#print( "has \u2800:", font.has_char(0x2800))
+
+
+	else:
+		Print.plog(Print.LogLevel.DEFAULT, "Disable Monospace Font Glyphs Fixes")
+
+#endregion Monospaced Font
 
 #                    ██  ██████  ██████  ███    ██ ███████                     #
 #                    ██ ██      ██    ██ ████   ██ ██                          #

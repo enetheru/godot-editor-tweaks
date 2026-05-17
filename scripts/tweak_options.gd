@@ -111,6 +111,10 @@ var adjust_linespacing_above : int = 0
 @export
 var adjust_linespacing_below : int = 0
 
+## Add a function to the code editor to add a call to trace with all the function arguments in a dictionary.
+@export
+var make_method_trace_line:bool = false
+
 #endregion Code Editor
 
 

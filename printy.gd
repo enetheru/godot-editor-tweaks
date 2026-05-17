@@ -161,6 +161,9 @@ static var styles:Dictionary[StringName, Dictionary] = {
 	&'FALSE':{&'icon':" ", &'color':"tomato"},
 }
 
+static var process_color_mutex := Mutex.new()
+static var process_color:Dictionary[int, Color] = {}
+
 static var thread_color_mutex := Mutex.new()
 static var thread_color:Dictionary[int, Color] = {}
 

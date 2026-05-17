@@ -1034,7 +1034,7 @@ func                        __________TRACE__________              ()->void:pass
 # ╰────────────────────────|___/───
 @export_group('Trace')
 @export var trace_disabled:bool = true
-static var trace_class_disabled:bool = false
+static var trace_class_disabled:bool = true
 
 # calls to enable propagation.
 func disable_trace() -> void: trace_disabled = true
