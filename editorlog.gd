@@ -168,7 +168,7 @@ func _on_vsb_changed( _value:float ) -> void:
 	_vsb_debounce_flag = true
 	_rtl_vsb.value_changed.disconnect(_on_vsb_changed)
 
-	trace_detail("_on_vsb_changed(%s)"% [_value])
+	trace_lvl(EneLog.LogLevel.DEFAULT, "_on_vsb_changed(%s)"% [_value])
 	_rtl_visible_p_range = get_visible_paragraph_range()
 
 	await EditorInterface.get_base_control().get_tree().create_timer(0.1).timeout
@@ -210,7 +210,7 @@ func _on_search_toggled( toggled_on:bool ) -> void:
 
 
 func _on_pattern_changed( new_pattern:String ) -> void:
-	trace_detail("_on_pattern_changed( %s )"% [new_pattern])
+	trace_lvl(EneLog.LogLevel.DEFAULT, "_on_pattern_changed( %s )"% [new_pattern])
 	search_pattern = new_pattern
 	if not debounce_timer.is_stopped(): return
 	debounce_timer.start(debounce_delay)
@@ -250,7 +250,7 @@ func _on_match_prev_pressed() -> void:
 			current_match_idx = match_indices .size()
 			at_first_match = false
 		else:
-			trace_detail("# TODO: pop for being at the top")
+			trace_lvl(EneLog.LogLevel.DEFAULT, "# TODO: pop for being at the top")
 			at_first_match = true
 			return
 
@@ -269,7 +269,7 @@ func _on_match_next_pressed() -> void:
 			current_match_idx = 1
 			at_last_match = false
 		else:
-			trace_detail("# TODO: pop for being at the bottom")
+			trace_lvl(EneLog.LogLevel.DEFAULT, "# TODO: pop for being at the bottom")
 			at_last_match = true
 			return
 
@@ -421,9 +421,9 @@ func do_search() -> void:
 	# TODO change the search function depending on the options.
 	match_results = _rtl_p_cache.reduce( basic_search.bind(search_info), {} )
 
-	trace_detail("line_cache.size: %s" % [_rtl_p_cache.size()])
+	trace_lvl(EneLog.LogLevel.DEFAULT, "line_cache.size: %s" % [_rtl_p_cache.size()])
 	if not _rtl_p_cache.is_empty():
-		trace_detail("first line: %s" % _rtl_p_cache[0])
+		trace_lvl(EneLog.LogLevel.DEFAULT, "first line: %s" % _rtl_p_cache[0])
 	if not match_results.is_empty():
 		match_indices .assign( match_results.keys() )
 		if current_match_idx > match_indices .size():
@@ -470,29 +470,29 @@ func clear_matches() -> void:
 
 # function assumes cached variables for draw are upto date.
 func is_character_visible( c_num:int ) -> int:
-	trace_detail("is_character_visible( %d )" % [c_num])
+	trace_lvl(EneLog.LogLevel.DEFAULT, "is_character_visible( %d )" % [c_num])
 	var l_num:int = _rtl.get_character_line(c_num)
-	trace_detail("char_line %s" % [l_num])
+	trace_lvl(EneLog.LogLevel.DEFAULT, "char_line %s" % [l_num])
 	var l_range:Vector2i = _rtl.get_line_range(l_num)
-	trace_detail("line_range %s" % [l_range])
+	trace_lvl(EneLog.LogLevel.DEFAULT, "line_range %s" % [l_range])
 
 	var c_rect:Rect2 = _rtl_visible_content_rect
-	trace_detail("visible_rect %s" % [c_rect])
+	trace_lvl(EneLog.LogLevel.DEFAULT, "visible_rect %s" % [c_rect])
 	var c_pos:Vector2 = c_rect.position
 	var c_scroll:float = _rtl_scroll_value
 
 	var l_rect:Rect2 = get_line_rect(l_num)
 	l_rect.position += c_pos
 	l_rect.position.y -= c_scroll
-	trace_detail("line_rect %s" % [l_rect])
+	trace_lvl(EneLog.LogLevel.DEFAULT, "line_rect %s" % [l_rect])
 
 	if l_rect.position.y == 0:
-		trace_detail("line_rect is at zero.")
+		trace_lvl(EneLog.LogLevel.DEFAULT, "line_rect is at zero.")
 		return 0
 	if l_rect.intersects(_rtl_visible_content_rect):
-		trace_detail("line_rect is visible")
+		trace_lvl(EneLog.LogLevel.DEFAULT, "line_rect is visible")
 		return l_range.x - c_num
-	trace_detail("line_rect is not visible")
+	trace_lvl(EneLog.LogLevel.DEFAULT, "line_rect is not visible")
 	return  c_num - l_range.x
 
 
@@ -502,7 +502,7 @@ func find_smallest(
 			guess_start: int = (size >> 1),
 			margin:int = 0
 			) -> int:
-	trace_detail("find_smallest( size: %d, func:%s, guess: %d, margin:%d)" % [
+	trace_lvl(EneLog.LogLevel.DEFAULT, "find_smallest( size: %d, func:%s, guess: %d, margin:%d)" % [
 			size, check_func.get_method(), guess_start, margin ])
 	assert( size > 0 )
 	var current:int = clamp(guess_start, 0, size - 1)
@@ -510,10 +510,10 @@ func find_smallest(
 	var smallest:int = 0
 
 	while current >= smallest and current < largest:
-		trace_detail("closing_window: (%s, %s)" % [smallest, largest])
-		trace_detail("current: %d" % current)
+		trace_lvl(EneLog.LogLevel.DEFAULT, "closing_window: (%s, %s)" % [smallest, largest])
+		trace_lvl(EneLog.LogLevel.DEFAULT, "current: %d" % current)
 		var step:int = check_func.call(current)
-		trace_detail("step: %d" % step)
+		trace_lvl(EneLog.LogLevel.DEFAULT, "step: %d" % step)
 		if abs(step) <= margin: return current # within margin
 
 		# Shrink window based on sign (monotonic assumption)
@@ -1027,40 +1027,39 @@ func draw_debug_text( position:Vector2, msg:String )-> void:
 
 # BEGIN_SNIPPET:trace
 func                        __________TRACE__________              ()->void:pass
-# │ _____            _
-# │|_   _| _ __ _ __(_)_ _  __ _
-# │  | || '_/ _` / _| | ' \/ _` |
-# │  |_||_| \__,_\__|_|_||_\__, |
-# ╰────────────────────────|___/───
-@export_group('Trace')
-@export var trace_disabled:bool = true
-static var trace_class_disabled:bool = true
+##    │ _____            _
+##[br]│|_   _| _ __ _ __(_)_ _  __ _
+##[br]│  | || '_/ _` / _| | ' \/ _` |
+##[br]│  |_||_| \__,_\__|_|_||_\__, |
+##[br]╰────────────────────────|___/───
+@export_category('Trace')
 
-# calls to enable propagation.
-func disable_trace() -> void: trace_disabled = true
-func enable_trace() -> void: trace_disabled = false
+## Set the log-level for the Class
+static var trace_class_lvl:int = EneLog.LogLevel.SILENT
 
+## Set the log-level for the Class instance
+## [br]Only Tracing with lvl below local and class level will be printed.
+## [br]Levels are increasing in verbosity, SILENT=0, CRITICAL=1 etc.
+## [br]Levels are also bitflags, and only the lowest two bytes are tested.
+@export var trace_local_lvl:int = EneLog.LogLevel.SILENT
+
+## Method to facilitate (Node).propagate_call( &'set_local_lvl', lvl )
+func set_local_lvl(lvl:int = 0) -> void: trace_local_lvl = lvl
+
+## Trace function calls with args in a dictionary, outputs rich text with links.
 func trace( args:Dictionary = {}, object:Object = self, stack:Array = [] ) -> void:
-	if EneLog.disabled or trace_class_disabled or trace_disabled: return
-	if stack.is_empty(): stack = Core.get_stack2(1)
+	var aggregate_level:int = EneLog.max_level & trace_class_lvl & trace_local_lvl
+	if aggregate_level & EneLog.LogLevel.MASK < EneLog.LogLevel.TRACE: return
+	if stack.is_empty(): stack = EneLog.get_stack_popped(1)
 	EneLog.trace( args, stack, object )
 
-
-func trace_detail( content:Variant, object:Object = null, stack:Array = [] ) -> void:
-	if EneLog.disabled or trace_class_disabled or trace_disabled: return
-	if stack.is_empty(): stack = Core.get_stack2()
-	trace_lvl( EneLog.LogLevel.TRACE, content, object, stack)
-
-
-func trace_lvl( lvl:int, content:Variant, object:Object = null, stack:Array = [] ) -> void:
-	if (EneLog.max_level < lvl) or EneLog.disabled  \
-			or trace_class_disabled or trace_disabled: return
-	if stack.is_empty(): stack = Core.get_stack2()
+## print log
+func trace_lvl( lvl:int, content:Variant, object:Object = null, stack:Array = EneLog.get_stack_popped() ) -> void:
+	var aggregate_level:int = EneLog.max_level & (trace_class_lvl | trace_local_lvl) & lvl
+	if aggregate_level == 0: return
+	var pre:String = EneLog.LogLevel.find_key(lvl) if lvl < EneLog.LogLevel.NOTICE else ''
 	if content is Array:
 		var arr:Array = content
 		content = ' '.join(arr.map(str))
-	if lvl < Core.LogLevel.NOTICE:
-		content = Core.LogLevel.find_key(lvl) + ": " + content
-	EneLog.printy( content, null, object, "", stack )
+	EneLog.printy( pre + ": " +  content, null, object, "", stack )
 # END_SNIPPET
-
