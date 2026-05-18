@@ -159,6 +159,7 @@ static var styles:Dictionary[StringName, Dictionary] = {
 	&'WAIT': {&'icon':" ", &'color':"medium_slate_blue"},
 	&'TRUE': {&'icon':" ", &'color':"lime_green"},
 	&'FALSE':{&'icon':" ", &'color':"tomato"},
+	&'SIG  ':{&'icon':" ", &'color':"orchid"},
 }
 
 static var process_color_mutex := Mutex.new()
