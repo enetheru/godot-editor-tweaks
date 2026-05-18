@@ -218,8 +218,6 @@ static func _static_init() -> void:
 			var pattern:String = stl.regex
 			stl[&"RegEx"] = RegEx.create_from_string(pattern)
 	styles_mutex.unlock()
-	if not disabled:
-		printy("Tracing is Enabled")
 
 
 #                    ██████  ██████  ██ ███    ██ ████████                     #

@@ -1057,9 +1057,9 @@ func trace( args:Dictionary = {}, object:Object = self, stack:Array = [] ) -> vo
 func trace_lvl( lvl:int, content:Variant, object:Object = null, stack:Array = EneLog.get_stack_popped() ) -> void:
 	var aggregate_level:int = EneLog.max_level & (trace_class_lvl | trace_local_lvl) & lvl
 	if aggregate_level == 0: return
-	var pre:String = EneLog.LogLevel.find_key(lvl) if lvl < EneLog.LogLevel.NOTICE else ''
+	var pre:String = (EneLog.LogLevel.find_key(lvl)+": ") if lvl < EneLog.LogLevel.DEFAULT else ''
 	if content is Array:
 		var arr:Array = content
 		content = ' '.join(arr.map(str))
-	EneLog.printy( pre + ": " +  content, null, object, "", stack )
+	EneLog.printy( pre + content, null, object, "", stack )
 # END_SNIPPET
