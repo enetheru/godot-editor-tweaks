@@ -115,7 +115,6 @@ static var _verbosity:int :
 	set(v):pass
 
 
-
 static func bitmask_array( value:int, max_width:int ) -> PackedByteArray:
 	var result:PackedByteArray
 	if result.resize(max_width) != OK: return []

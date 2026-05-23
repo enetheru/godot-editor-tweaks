@@ -557,7 +557,6 @@ static func format_key_value(key:Variant, value:Variant) -> String:
 	return str(key) + "=" + str(value)
 
 
-
 #             ██████  ██████  ██ ██    ██  █████  ████████ ███████             #
 #             ██   ██ ██   ██ ██ ██    ██ ██   ██    ██    ██                  #
 #             ██████  ██████  ██ ██    ██ ███████    ██    █████               #
@@ -1081,7 +1080,6 @@ static func _save_stack(stack: Array) -> void:
 	prev_stack_size = stack.size()
 	prev_stack = stack
 	prev_stack_mutex.unlock()
-
 
 
 #     ███████ ██   ██  █████  ███    ███ ██████  ██      ███████ ███████       #

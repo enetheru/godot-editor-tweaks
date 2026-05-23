@@ -135,12 +135,8 @@ func _init() -> void:
 			color_notice_trace = _es.get_setting("text_editor/theme/highlighting/comment_color")
 
 
-
-
-
 static var editor_log:Control
 static var output_rtl:RichTextLabel = null
-
 
 
 static func get_output_rtl() -> RichTextLabel:

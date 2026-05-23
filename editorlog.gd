@@ -239,7 +239,6 @@ func _on_pattern_regex_pressed() -> void:
 	EditorInterface.inspect_object(_rtl)
 
 
-
 func _on_match_prev_pressed() -> void:
 	if await cache_is_updated(): do_search()
 	if match_indices .is_empty(): return
@@ -553,7 +552,6 @@ func basic_search(
 		results[search_info.p_num] = result_array
 	search_info.p_num += 1
 	return results
-
 
 
 #                ██████ ██████  ███████  █████  ████████ ███████               #
