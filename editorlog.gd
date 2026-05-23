@@ -1034,32 +1034,42 @@ func                        __________TRACE__________              ()->void:pass
 ##[br]╰────────────────────────|___/───
 @export_category('Trace')
 
+## Pull in LogLevel
+const LogLevel = EneLog.LogLevel
+
 ## Set the log-level for the Class
-static var trace_class_lvl:int = EneLog.LogLevel.SILENT
+static var trace_class_lvl:int = LogLevel.SILENT
 
 ## Set the log-level for the Class instance
 ## [br]Only Tracing with lvl below local and class level will be printed.
 ## [br]Levels are increasing in verbosity, SILENT=0, CRITICAL=1 etc.
 ## [br]Levels are also bitflags, and only the lowest two bytes are tested.
-@export var trace_local_lvl:int = EneLog.LogLevel.SILENT
+@export_enum("SILENT:0","CRITICAL:1","ERROR:2","WARNING:4",
+		"DEFAULT:8","NOTICE:16","DEBUG:32","TRACE:64","MASK:255")
+var trace_local_lvl:int = LogLevel.SILENT
 
 ## Method to facilitate (Node).propagate_call( &'set_local_lvl', lvl )
 func set_local_lvl(lvl:int = 0) -> void: trace_local_lvl = lvl
 
 ## Trace function calls with args in a dictionary, outputs rich text with links.
-func trace( args:Dictionary = {}, object:Object = self, stack:Array = [] ) -> void:
-	var aggregate_level:int = EneLog.max_level & trace_class_lvl & trace_local_lvl
-	if aggregate_level & EneLog.LogLevel.MASK < EneLog.LogLevel.TRACE: return
-	if stack.is_empty(): stack = EneLog.get_stack_popped(1)
+func trace( args:Dictionary = {}, object:Object = self,
+			stack:Array = EneLog.get_stack_popped(1) ) -> void:
+	if not EneLog.check_level(LogLevel.TRACE, self):
+		return
 	EneLog.trace( args, stack, object )
 
 ## print log
-func trace_lvl( lvl:int, content:Variant, object:Object = null, stack:Array = EneLog.get_stack_popped() ) -> void:
-	var aggregate_level:int = EneLog.max_level & (trace_class_lvl | trace_local_lvl) & lvl
-	if aggregate_level == 0: return
-	var pre:String = (EneLog.LogLevel.find_key(lvl)+": ") if lvl < EneLog.LogLevel.DEFAULT else ''
+func trace_lvl( lvl:int, content:Variant, object:Object = null,
+			stack:Array = EneLog.get_stack_popped() ) -> void:
+	if not EneLog.check_level(lvl, self):
+		return
+	var pre:String
+	if lvl < LogLevel.DEFAULT:
+		pre = (LogLevel.find_key(lvl) + ": ")
 	if content is Array:
 		var arr:Array = content
 		content = ' '.join(arr.map(str))
-	EneLog.printy( pre + content, null, object, "", stack )
+	if content is Dictionary:
+		content = JSON.stringify(content, '  ')
+	EneLog.printy( pre + str(content), null, object, "", stack )
 # END_SNIPPET

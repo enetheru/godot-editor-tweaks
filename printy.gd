@@ -353,6 +353,22 @@ static func disable() -> void: disabled = true
 static func enable() -> void: disabled = false
 
 
+static func check_level( lvl:int = _verbosity, object:Object = null ) -> bool:
+	var class_lvl:int = _verbosity
+	var local_lvl:int = _verbosity
+
+	if is_instance_valid(object):
+		var variant:Variant
+		variant = object.get(&'trace_class_lvl')
+		class_lvl = variant if variant is int else 0
+
+		variant = object.get(&'trace_local_lvl')
+		local_lvl = variant if variant is int else 0
+
+	# Logging is additive
+	return _verbosity | class_lvl | local_lvl >= lvl
+
+
 ## Get the stack and strip the top n stack frames
 static func get_stack_popped( n:int = 0 ) -> Array:
 	var stack:Array = get_stack()
