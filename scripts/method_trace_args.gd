@@ -32,7 +32,7 @@ class MethodTraceArgsMenu extends EditorContextMenuPlugin:
 				_insert_trace_lvl(code_edit) )
 
 	static func _insert_trace_lvl( code_edit:CodeEdit ) -> void:
-		var snippet:String = "trace_lvl(Core.LogLevel.DEFAULT, [''])"
+		var snippet:String = "trace_lvl(LogLevel.DEFAULT, [''])"
 		var line_idx:int = code_edit.get_caret_line()
 		var line_text:String = code_edit.get_line(line_idx)
 
