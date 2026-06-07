@@ -22,16 +22,17 @@ const OSC_LINK_OPEN: String  = ESC + "]8;;"              # Start of OSC 8 hyperl
 const OSC_ST: String         = ESC + "\\"                # String Terminator
 const OSC_LINK_CLOSE: String = ESC + "]8;;" + OSC_ST     # End of OSC 8 hyperlink
 
+## Bitmask for tagging and discriminating messages.
 enum LogLevel {
-	SILENT   = 0x00,
-	CRITICAL = 0x01,
-	ERROR    = 0x02,
-	WARNING  = 0x04,
-	DEFAULT  = 0x08,
-	NOTICE   = 0x10,
-	DEBUG    = 0x20,
-	TRACE    = 0x40,
-	MASK     = 0xFF
+	SILENT   = 0x00, ##   0: Do not display anything.
+	CRITICAL = 0x01, ##   1: Reserved for only the highest priority, adds prefix 'Critical:'
+	ERROR    = 0x02, ##   2: An error has occurred, adds prefix 'Error:', prints stacktrace.
+	WARNING  = 0x04, ##   4: Warning, adds prefix 'Warning:', prints stacktrace.
+	DEFAULT  = 0x08, ##   8: Default or neutral level.
+	NOTICE   = 0x10, ##  16: Notify the user
+	DEBUG    = 0x20, ##  32:
+	TRACE    = 0x40, ##  64:
+	MASK     = 0xFF  ## 255: bitmask, or all levels.
 }
 
 static var _verbosity:int = LogLevel.DEFAULT
@@ -366,7 +367,7 @@ static func check_level( lvl:int = _verbosity, object:Object = null ) -> bool:
 		local_lvl = variant if variant is int else 0
 
 	# Logging is additive
-	return _verbosity | class_lvl | local_lvl >= lvl
+	return _verbosity & (class_lvl | local_lvl) >= lvl
 
 
 ## Get the stack and strip the top n stack frames
