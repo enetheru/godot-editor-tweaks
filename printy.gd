@@ -35,7 +35,9 @@ enum LogLevel {
 	MASK     = 0xFF  ## 255: bitmask, or all levels.
 }
 
-static var _verbosity:int = LogLevel.DEFAULT
+static var _levels: Dictionary = {}  # path_prefix -> level
+static var _default_level: int = LogLevel.DEFAULT
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Per-call logging context
@@ -84,6 +86,19 @@ class LogCtx:
 	var msg_pre: String = ""
 	var msg_post: String = ""
 	var msg_text: String = ""
+
+
+## RAII guard
+class StackPathLogScope:
+	extends RefCounted
+	var _path: String
+
+	func _init(path: String) -> void:
+		_path = path
+
+	func _notification(what: int) -> void:
+		if what == NOTIFICATION_PREDELETE:
+			StackPathLogContext._pop(_path)
 
 
 # ██████  ██████   ██████  ██████  ███████ ██████  ████████ ██ ███████ ███████ #
@@ -315,7 +330,7 @@ static func print_end_frame_deferred(_physics:bool = false) -> void:
 
 
 static func ptrace() -> void:
-	if _verbosity < LogLevel.TRACE: return
+	if _default_level < LogLevel.TRACE: return
 	if OS.get_thread_caller_id() in thread_filter:return
 	var colour:String = get_colour(LogLevel.TRACE).to_html()
 	var call_site:Dictionary = get_stack()[1]
@@ -325,7 +340,7 @@ static func ptrace() -> void:
 
 
 static func plog( level:int, ...message:Array ) -> void:
-	if _verbosity < level: return
+	if _default_level < level: return
 	if OS.get_thread_caller_id() in thread_filter:return
 	var colour:String = get_colour(level).to_html()
 	var padding:String = "".lpad(get_stack().size()-1, '\t') if level == LogLevel.TRACE else ""
@@ -333,7 +348,7 @@ static func plog( level:int, ...message:Array ) -> void:
 
 
 static func plog_check( level:int, ...message:Array ) -> bool:
-	if _verbosity < level: return false
+	if _default_level < level: return false
 	plog(level, message)
 	return true
 
@@ -346,7 +361,7 @@ static func plog_check( level:int, ...message:Array ) -> bool:
 func                        _________METHODS_________              ()->void:pass
 
 static func lvl( level:int ) -> bool:
-	return _verbosity >= level
+	return _default_level >= level
 
 static func disable() -> void: disabled = true
 
@@ -354,9 +369,43 @@ static func disable() -> void: disabled = true
 static func enable() -> void: disabled = false
 
 
-static func check_level( lvl:int = _verbosity, object:Object = null ) -> bool:
-	var class_lvl:int = _verbosity
-	var local_lvl:int = _verbosity
+static func get_level() -> int:
+	var path := _make_path()
+	for prefix in _levels:
+		if path.begins_with(prefix):
+			return _levels[prefix]
+	return _default_level
+
+
+static func _make_path() -> String:
+	var stack: Array[Dictionary] = get_stack_popped(4)
+	var parts: PackedStringArray = []
+	# Build compact path from top frames (tune depth)
+	var depth: int = mini(10, stack.size())
+	for i in range(depth-1, 0, -1):
+		var frame: Dictionary = stack[i]
+		parts.append(frame.get("function", "<unknown>"))
+		# Optional: include source or line for more specificity
+		# parts.append(frame.get("source", ""))
+		# parts.append(str(frame.get("line", 0)))
+	var path:String = "/".join(parts)
+	return path
+
+
+## Push level for current stack path. Returns RAII guard.
+static func push_level(new_level: int) -> StackPathLogScope:
+	var path := _make_path()
+	_levels[path] = new_level
+	return StackPathLogScope.new(path)
+
+
+static func _pop(path: String) -> void:
+	_levels.erase(path)
+
+
+static func check_level( lvl:int = get_level(), object:Object = null ) -> bool:
+	var class_lvl:int = _default_level
+	var local_lvl:int = _default_level
 
 	if is_instance_valid(object):
 		var variant:Variant
@@ -367,7 +416,7 @@ static func check_level( lvl:int = _verbosity, object:Object = null ) -> bool:
 		local_lvl = variant if variant is int else 0
 
 	# Logging is additive
-	return _verbosity & (class_lvl | local_lvl) >= lvl
+	return (get_level() | class_lvl | local_lvl) & lvl
 
 
 ## Get the stack and strip the top n stack frames
