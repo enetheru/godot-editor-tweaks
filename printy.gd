@@ -28,26 +28,30 @@ enum LogLevel {
 	SILENT   = 0x00, ##   0: Do not display anything.
 
 	CRITICAL = 0x01, ##   1: Reserved for only the highest priority, adds prefix 'Critical:'
-	ERROR    = 0x03, ##   3: An error has occurred, adds prefix 'Error:', prints stacktrace.
-	WARNING  = 0x07, ##   7: Warning, adds prefix 'Warning:', prints stacktrace.
-	DEFAULT  = 0x0F, ##  15: Default or neutral level.
-	NOTICE   = 0x1F, ##  31: Notify the user
-	DEBUG    = 0x3F, ##  63:
-	TRACE    = 0x7F, ##  64:
+	ERROR    = 0x02, ##   3: An error has occurred, adds prefix 'Error:', prints stacktrace.
+	WARNING  = 0x04, ##   7: Warning, adds prefix 'Warning:', prints stacktrace.
+	NOTICE   = 0x08, ##  15: Sparse important information
+	INFO     = 0x10, ##  31: More information
+	DEBUG    = 0x20, ##  63: Debug Information
+	TRACE    = 0x40, ##  64: Function Calls and process.
 
 	MASK     = 0xFF,  ## 255: bitmask, or all levels.
 
-	EXCLUSIVE_CRITICAL = 0x01, ##   1: Reserved for only the highest priority, adds prefix 'Critical:'
-	EXCLUSIVE_ERROR    = 0x02, ##   2: An error has occurred, adds prefix 'Error:', prints stacktrace.
-	EXCLUSIVE_WARNING  = 0x04, ##   4: Warning, adds prefix 'Warning:', prints stacktrace.
-	EXCLUSIVE_DEFAULT  = 0x08, ##   8: Default or neutral level.
-	EXCLUSIVE_NOTICE   = 0x10, ##  16: Notify the user
-	EXCLUSIVE_DEBUG    = 0x20, ##  32:
-	EXCLUSIVE_TRACE    = 0x40, ##  64:
+	INCLUSIVE_CRITICAL = 0x01, ##   1: Reserved for only the highest priority, adds prefix 'Critical:'
+	INCLUSIVE_ERROR    = 0x03, ##   2: An error has occurred, adds prefix 'Error:', prints stacktrace.
+	INCLUSIVE_WARNING  = 0x07, ##   4: Warning, adds prefix 'Warning:', prints stacktrace.
+	INCLUSIVE_NOTICE   = 0x0F, ##   8: Sparse important information
+	INCLUSIVE_INFO     = 0x1F, ##  16: More information
+	INCLUSIVE_DEBUG    = 0x3F, ##  32: Debug Information
+	INCLUSIVE_TRACE    = 0x7F, ##  64: Function Calls and process.
+
+	# Aliases
+	DEFAULT = NOTICE,
+	INCLUSIVE_DEFAULT = INCLUSIVE_NOTICE,
 }
 
 static var _levels: Dictionary = {}  # path_prefix -> level
-static var _default_level: int = LogLevel.DEFAULT
+static var _default_level: int = LogLevel.INCLUSIVE_NOTICE
 
 
 # ─────────────────────────────────────────────────────────────────────────────

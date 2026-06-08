@@ -168,7 +168,7 @@ func _on_vsb_changed( _value:float ) -> void:
 	_vsb_debounce_flag = true
 	_rtl_vsb.value_changed.disconnect(_on_vsb_changed)
 
-	trace_lvl(EneLog.LogLevel.DEFAULT, "_on_vsb_changed(%s)"% [_value])
+	trace_lvl(EneLog.LogLevel.INFO, "_on_vsb_changed(%s)"% [_value])
 	_rtl_visible_p_range = get_visible_paragraph_range()
 
 	await EditorInterface.get_base_control().get_tree().create_timer(0.1).timeout
@@ -210,7 +210,7 @@ func _on_search_toggled( toggled_on:bool ) -> void:
 
 
 func _on_pattern_changed( new_pattern:String ) -> void:
-	trace_lvl(EneLog.LogLevel.DEFAULT, "_on_pattern_changed( %s )"% [new_pattern])
+	trace_lvl(EneLog.LogLevel.INFO, "_on_pattern_changed( %s )"% [new_pattern])
 	search_pattern = new_pattern
 	if not debounce_timer.is_stopped(): return
 	debounce_timer.start(debounce_delay)
@@ -249,7 +249,7 @@ func _on_match_prev_pressed() -> void:
 			current_match_idx = match_indices .size()
 			at_first_match = false
 		else:
-			trace_lvl(EneLog.LogLevel.DEFAULT, "# TODO: pop for being at the top")
+			trace_lvl(EneLog.LogLevel.NOTICE, "# TODO: pop for being at the top")
 			at_first_match = true
 			return
 
@@ -268,7 +268,7 @@ func _on_match_next_pressed() -> void:
 			current_match_idx = 1
 			at_last_match = false
 		else:
-			trace_lvl(EneLog.LogLevel.DEFAULT, "# TODO: pop for being at the bottom")
+			trace_lvl(EneLog.LogLevel.NOTICE, "# TODO: pop for being at the bottom")
 			at_last_match = true
 			return
 
@@ -420,9 +420,9 @@ func do_search() -> void:
 	# TODO change the search function depending on the options.
 	match_results = _rtl_p_cache.reduce( basic_search.bind(search_info), {} )
 
-	trace_lvl(EneLog.LogLevel.DEFAULT, "line_cache.size: %s" % [_rtl_p_cache.size()])
+	trace_lvl(EneLog.LogLevel.INFO, "line_cache.size: %s" % [_rtl_p_cache.size()])
 	if not _rtl_p_cache.is_empty():
-		trace_lvl(EneLog.LogLevel.DEFAULT, "first line: %s" % _rtl_p_cache[0])
+		trace_lvl(EneLog.LogLevel.INFO, "first line: %s" % _rtl_p_cache[0])
 	if not match_results.is_empty():
 		match_indices .assign( match_results.keys() )
 		if current_match_idx > match_indices .size():
@@ -469,27 +469,27 @@ func clear_matches() -> void:
 
 # function assumes cached variables for draw are upto date.
 func is_character_visible( c_num:int ) -> int:
-	trace_lvl(EneLog.LogLevel.DEFAULT, "is_character_visible( %d )" % [c_num])
+	trace_lvl(EneLog.LogLevel.INFO, "is_character_visible( %d )" % [c_num])
 	var l_num:int = _rtl.get_character_line(c_num)
-	trace_lvl(EneLog.LogLevel.DEFAULT, "char_line %s" % [l_num])
+	trace_lvl(EneLog.LogLevel.INFO, "char_line %s" % [l_num])
 	var l_range:Vector2i = _rtl.get_line_range(l_num)
-	trace_lvl(EneLog.LogLevel.DEFAULT, "line_range %s" % [l_range])
+	trace_lvl(EneLog.LogLevel.INFO, "line_range %s" % [l_range])
 
 	var c_rect:Rect2 = _rtl_visible_content_rect
-	trace_lvl(EneLog.LogLevel.DEFAULT, "visible_rect %s" % [c_rect])
+	trace_lvl(EneLog.LogLevel.INFO, "visible_rect %s" % [c_rect])
 	var c_pos:Vector2 = c_rect.position
 	var c_scroll:float = _rtl_scroll_value
 
 	var l_rect:Rect2 = get_line_rect(l_num)
 	l_rect.position += c_pos
 	l_rect.position.y -= c_scroll
-	trace_lvl(EneLog.LogLevel.DEFAULT, "line_rect %s" % [l_rect])
+	trace_lvl(EneLog.LogLevel.INFO, "line_rect %s" % [l_rect])
 
 	if l_rect.position.y == 0:
-		trace_lvl(EneLog.LogLevel.DEFAULT, "line_rect is at zero.")
+		trace_lvl(EneLog.LogLevel.INFO, "line_rect is at zero.")
 		return 0
 	if l_rect.intersects(_rtl_visible_content_rect):
-		trace_lvl(EneLog.LogLevel.DEFAULT, "line_rect is visible")
+		trace_lvl(EneLog.LogLevel.INFO, "line_rect is visible")
 		return l_range.x - c_num
 	trace_lvl(EneLog.LogLevel.DEFAULT, "line_rect is not visible")
 	return  c_num - l_range.x
