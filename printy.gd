@@ -26,14 +26,24 @@ const OSC_LINK_CLOSE: String = ESC + "]8;;" + OSC_ST     # End of OSC 8 hyperlin
 ## Bitmask for tagging and discriminating messages.
 enum LogLevel {
 	SILENT   = 0x00, ##   0: Do not display anything.
+
 	CRITICAL = 0x01, ##   1: Reserved for only the highest priority, adds prefix 'Critical:'
-	ERROR    = 0x02, ##   2: An error has occurred, adds prefix 'Error:', prints stacktrace.
-	WARNING  = 0x04, ##   4: Warning, adds prefix 'Warning:', prints stacktrace.
-	DEFAULT  = 0x08, ##   8: Default or neutral level.
-	NOTICE   = 0x10, ##  16: Notify the user
-	DEBUG    = 0x20, ##  32:
-	TRACE    = 0x40, ##  64:
-	MASK     = 0xFF  ## 255: bitmask, or all levels.
+	ERROR    = 0x03, ##   3: An error has occurred, adds prefix 'Error:', prints stacktrace.
+	WARNING  = 0x07, ##   7: Warning, adds prefix 'Warning:', prints stacktrace.
+	DEFAULT  = 0x0F, ##  15: Default or neutral level.
+	NOTICE   = 0x1F, ##  31: Notify the user
+	DEBUG    = 0x3F, ##  63:
+	TRACE    = 0x7F, ##  64:
+
+	MASK     = 0xFF,  ## 255: bitmask, or all levels.
+
+	EXCLUSIVE_CRITICAL = 0x01, ##   1: Reserved for only the highest priority, adds prefix 'Critical:'
+	EXCLUSIVE_ERROR    = 0x02, ##   2: An error has occurred, adds prefix 'Error:', prints stacktrace.
+	EXCLUSIVE_WARNING  = 0x04, ##   4: Warning, adds prefix 'Warning:', prints stacktrace.
+	EXCLUSIVE_DEFAULT  = 0x08, ##   8: Default or neutral level.
+	EXCLUSIVE_NOTICE   = 0x10, ##  16: Notify the user
+	EXCLUSIVE_DEBUG    = 0x20, ##  32:
+	EXCLUSIVE_TRACE    = 0x40, ##  64:
 }
 
 static var _levels: Dictionary = {}  # path_prefix -> level
