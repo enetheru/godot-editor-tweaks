@@ -78,7 +78,7 @@ func _on_project_settings_changed(
 	match setting_name:
 		"experimental" when setting_value == true: enable_experimental_features()
 		"experimental": disable_experimental_features()
-		"verbosity": Print._verbosity = setting_value
+		"verbosity": Print._default_level = setting_value
 		"enable_ligatures": editorlog_ligatures_toggle(b)
 		"add_rotate_bbcode_effect": editorlog_rotate_toggle(b)
 		"enable_output_search_bar": editorlog_search_toggle(b)
@@ -120,7 +120,7 @@ func _init() -> void:
 
 
 func _enter_tree() -> void:
-	Print._verbosity = opts.verbosity
+	Print._default_level = opts.verbosity
 	Print.ptrace()
 	if opts.enable_ligatures:           editorlog_ligatures_toggle(opts.enable_ligatures)
 	if opts.add_rotate_bbcode_effect:   editorlog_rotate_toggle(opts.add_rotate_bbcode_effect)
