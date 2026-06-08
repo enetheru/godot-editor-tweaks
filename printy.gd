@@ -12,6 +12,7 @@ class_name EneLog
 ## [color=goldenrod]TODO[/color]: Consider using hint bbcode to add more detail[br]
 ## [b]      eg.[hint="{tooltip text displayed on hover}"]{text}[/hint][br]
 
+func                        __Definitions____________              ()->void:pass
 const TWEAK_OPTS = preload("uid://dhpivfj5v8omf")
 
 const MAX_INT:int = 0x7FFF_FFFF_FFFF_FFFF
@@ -98,7 +99,7 @@ class StackPathLogScope:
 
 	func _notification(what: int) -> void:
 		if what == NOTIFICATION_PREDELETE:
-			StackPathLogContext._pop(_path)
+			EneLog._pop(_path)
 
 
 # ██████  ██████   ██████  ██████  ███████ ██████  ████████ ██ ███████ ███████ #
