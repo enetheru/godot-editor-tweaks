@@ -408,7 +408,10 @@ static func _make_path() -> String:
 
 
 ## Push level for current stack path. Returns RAII guard.
+## [br] FIXME: when a method is deferred, its stack begins again.
 static func push_level(new_level: int) -> StackPathLogScope:
+	# TODO, print when the scope starts, and when from.
+	# and then print when the scope finishes.
 	var path := _make_path()
 	_levels[path] = new_level
 	return StackPathLogScope.new(path)
