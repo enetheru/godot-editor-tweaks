@@ -79,12 +79,18 @@ class LogCtx:
 	var flow_return:String = ""
 	var after:String = ""
 
+	#time
+	var time:String = ''
+	var time_icon:String = ''
+
 	#proc_fd
 	var proc:String
-	var proc_color:String = Color(0.4, 0.4, 0.4).to_html()
-	var proc_icon:String = " "
+	var proc_color:String = Color.WEB_GRAY.to_html()
+	var proc_icon:String = " "
 	var proc_id:int = OS.get_process_id()
+	#thread
 	var thread_id:int = OS.get_thread_caller_id()
+	var thread_color:String = Color.WEB_GRAY.to_html()
 
 	var left:String = ""
 
@@ -710,13 +716,13 @@ static func _compute_stack_distance(ctx: LogCtx) -> void:
 static func _apply_thread_and_proc_info(ctx: LogCtx) -> void:
 	if ctx.thread_id == OS.get_main_thread_id():
 		# Main Thread
-		ctx.proc_icon = ""
-		ctx.proc_color = "yellow"
+		ctx.proc_icon = ""
+		ctx.thread_color = Color.WEB_GRAY.to_html()
 	else:
 		thread_color_mutex.lock()
 		var col:Color = thread_color.get_or_add(ctx.thread_id, Enetheru.colour.random())
 		thread_color_mutex.unlock()
-		ctx.proc_color = col.to_html()
+		ctx.thread_color = col.to_html()
 		ctx.proc_icon = ""
 
 
@@ -819,19 +825,20 @@ static func _apply_style(ctx: LogCtx) -> void:
 
 
 static func _finalize_formatting(ctx: LogCtx) -> void:
+	# time
+	ctx.time = ''.join([
+		ctx.time_icon,
+		"%08X" % last_time])
 	# proc
 	#ctx.proc = "[color={proc_c}]{proc_i}{proc_p}[/color]".format(ctx)
 	ctx.proc = ''.join([
-		"%05d|" % Engine.get_frames_drawn(),
-		"[color=%s]%05d[/color]" % [color_dim_grey, ctx.proc_id],
-		"[color=%s]" % ctx.proc_color,
 		ctx.proc_icon,
-		"%02d" % ctx.thread_id,
-		"[/color]",
+		"[color=%s]%05X[/color]" % [ctx.proc_color, ctx.proc_id],
+		".[color=%s]%02d[/color]" % [ctx.thread_color, ctx.thread_id],
 		])
 
-
 	ctx.left = "|".join([
+		ctx.time,
 		ctx.proc,
 		ctx.rpc if ctx.rpc else "     ",
 		ctx.net if ctx.net else "     ",
