@@ -1,5 +1,6 @@
 @tool
 
+##
 ## │ ___      _   _   _                _  _     _                  [br]
 ## │/ __| ___| |_| |_(_)_ _  __ _ ___ | || |___| |_ __  ___ _ _    [br]
 ## │\__ \/ -_)  _|  _| | ' \/ _` (_-< | __ / -_) | '_ \/ -_) '_|   [br]
@@ -48,29 +49,24 @@
 ## [br]
 ## The idea is that we walk the property list of an object, and translate its properties into editor settings.
 ## [br]
-## Object Property Dictionary.[br]
-## Returns the object's property list as an Array of dictionaries. Each [Dictionary] contains the following entries:[br]
-## - name is the property's name, as a [String];[br]
-## - class_name is an empty [StringName], unless the property is [enum Variant.Type].[code]TYPE_OBJECT[/code] and it inherits from a class;[br]
-## - type is the property's type, as an int (see [enum Variant.Type]);[br]
-## - hint is how the property is meant to be edited (see [enum PropertyHint]);[br]
-## - hint_string depends on the hint (see [enum PropertyHint]);[br]
-## - usage is a combination of [enum PropertyUsageFlags].[br]
-## [b]Note:[/b] In GDScript, all class members are treated as properties.
-## In C# and GDExtension, it may be necessary to explicitly mark class members
+## [br]The [method Object._get_property_list] method returns an [Array] of [Dictionary].
+## [br]Each [Dictionary] contains the following entries:
+## [br]  [code]name[/code] is the property's name, as a [String];
+## [br]  [code]class_name[/code] is an empty [StringName], unless the property is [enum Variant.Type].[code]TYPE_OBJECT[/code] and it inherits from a class;
+## [br]  [code]type[/code] is the property's type, as an int (see [enum Variant.Type]);
+## [br]  [code]hint[/code] is how the property is meant to be edited (see [enum PropertyHint]);
+## [br]  [code]hint_string[/code] depends on the hint (see [enum PropertyHint]);
+## [br]  [code]usage[/code] is a combination of [enum PropertyUsageFlags].
+## [br]
+## [br][color=SEA_green]NOTE[/color]: In GDScript, all class members are treated as properties.
+## [br][color=SEA_green]NOTE[/color]: In C# and GDExtension, it may be necessary to explicitly mark class members
 ## as Godot properties using decorators or attributes.
 ## [br]
-## EditorSettings property.[br]
-## [codeblock]
-## settings.set("category/property_name", 0)
-## var property_info = {
-##	# - "name": "category/property_name",
-##	# - "type": TYPE_INT,
-##	# - "hint": PROPERTY_HINT_ENUM,
-##	# - "hint_string": "one,two,three"
-## }
-## settings.add_property_info(property_info)
-## [/codeblock]
+## [br][method ProjectSettings.add_property_info] takes a dictionary argument:
+## [br]  [code]name[/code]: [String] eg. "category/property_name",
+## [br]  [code]type[/code]: [enum Variant.Type],
+## [br]  [code]hint[/code]: [enum @GlobalScope.PropertyHint],
+## [br]  [code]hint_string[/code]: [String], for the type hint if it needs one.
 ## [br]
 ## 11/11/2025 10:41am ACT+930 - I guess Created[br]
 ## [br]
@@ -86,6 +82,7 @@
 ## 2026-02-27 - Completely re-worked the script for ProjectSettings,
 ## instead of EditorSettings.[br]
 ## 2026-03-08 - Fixed the signal to emit the new value, not the old one[br]
+## 2026-06-09 - updated this documentation a little.
 
 ## Link for adding documentation tooltips to settings.
 ## very brute force.

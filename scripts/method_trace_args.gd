@@ -14,10 +14,15 @@
 
 
 static func create_method_trace_args_cm() -> EditorContextMenuPlugin:
+
+	#TODO var command_palette = EditorInterface.get_command_palette()
+	#command_palette.add_command("command", "test/command", func()->void:pass)
+
 	return MethodTraceArgsMenu.new()
 
 
 class MethodTraceArgsMenu extends EditorContextMenuPlugin:
+
 
 	func _popup_menu( paths:PackedStringArray ) -> void:
 		if paths.is_empty(): return

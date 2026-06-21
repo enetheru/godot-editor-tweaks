@@ -133,6 +133,7 @@ static var reset:bool = true
 static var top_level:bool = true
 
 # Frequency adjustment
+static var get_time:Callable = Time.get_ticks_usec
 static var last_time:int
 static var threshold:int = 1000
 static var delay_amount:int = 100
@@ -291,7 +292,7 @@ static func printy(
 	if OS.get_thread_caller_id() in thread_filter:return
 	OS.delay_msec(4) # let the editor catch up.
 
-	last_time = Time.get_ticks_usec()
+	last_time = get_time.call()
 	last_frame = Engine.get_process_frames()
 	last_pframe = Engine.get_physics_frames()
 

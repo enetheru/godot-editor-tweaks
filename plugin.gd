@@ -13,9 +13,9 @@ const SettingsHalpr = preload("uid://o5djwaewipdy")
 var settings_hlp:SettingsHalpr
 
 const Author:String = "Samuel Nicholas (Enetheru)"
-const author:String = "enetheru"
-const PluginName:String = "EditorTweaks"
-const plugin_name:String = "editor_tweaks"
+const author:String = "enetheru"           # snake_case tag
+const PluginName:String = "EditorTweaks"   # Capitalised
+const plugin_name:String = "editor_tweaks" # snake case
 
 # ██████  ██████   ██████  ██████  ███████ ██████  ████████ ██ ███████ ███████ #
 # ██   ██ ██   ██ ██    ██ ██   ██ ██      ██   ██    ██    ██ ██      ██      #
@@ -28,6 +28,7 @@ static var _prime:Self
 static var plugin_dir:String
 static var plugin_path:String
 
+# should be static no?
 var opts:TweakOptions
 
 var editorlog_font_names : PackedStringArray = [
