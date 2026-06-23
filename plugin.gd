@@ -9,6 +9,8 @@ const Self = preload('uid://setvleg6sni3')
 
 const Print = preload("uid://babswmnh2kosn")
 
+const EditorIntegration = preload("uid://cl0kj8qvnhfam")
+
 const SettingsHalpr = preload("uid://o5djwaewipdy")
 var settings_hlp:SettingsHalpr
 
@@ -27,6 +29,8 @@ func                        ________PROPERTIES_______              ()->void:pass
 static var _prime:Self
 static var plugin_dir:String
 static var plugin_path:String
+
+var export_plugin: EditorExportPlugin
 
 # should be static no?
 var opts:TweakOptions
@@ -69,6 +73,7 @@ func _on_editorlog_link_clicked( meta : Variant ) -> void:
 		@warning_ignore('return_value_discarded')
 		OS.shell_open( url )
 
+
 #TODO  I want a setting path in here too so that if a setting fails, it can be reverted.
 func _on_project_settings_changed(
 			setting_name:String, setting_value:Variant ) -> void:
@@ -108,7 +113,8 @@ func _init() -> void:
 	plugin_path = get_script().resource_path
 	plugin_dir = plugin_path.get_base_dir()
 
-	opts = TweakOptions.new()
+	opts  = load(plugin_dir + "/res/tweak_opts.tres")
+	default_tweak_options(opts)
 	settings_hlp = SettingsHalpr.new(opts, plugin_name)
 
 	@warning_ignore("return_value_discarded")
@@ -133,11 +139,18 @@ func _enter_tree() -> void:
 	if opts.make_method_trace_line:     make_method_trace_line_toggle(opts.make_method_trace_line)
 	if opts.experimental:               enable_experimental_features()
 
+	# Export Plugin
+	export_plugin = preload("export_plugin.gd").new()
+	add_export_plugin(export_plugin)
+
 
 func _exit_tree() -> void:
 	Print.ptrace()
 	if opts.experimental:
 		disable_experimental_features()
+
+	if export_plugin:
+		remove_export_plugin(export_plugin)
 
 func _get_plugin_name() -> String:
 	Print.ptrace()
@@ -224,6 +237,24 @@ static func get_code_font() -> FontVariation:
 	if is_instance_valid(code_edit_font): return code_edit_font
 	Print.plog(Print.LogLevel.ERROR, "Unable to find CodeEdit font in editor theme")
 	return null
+
+
+func default_tweak_options(tweak_opts:TweakOptions ) -> void:
+	if Engine.is_editor_hint():
+		var _es := EditorInterface.get_editor_settings()
+		if tweak_opts.color_notice_critical == Color.BLACK:
+			tweak_opts.color_notice_critical = _es.get_setting("text_editor/theme/highlighting/comment_markers/critical_color")
+		if tweak_opts.color_notice_error == Color.BLACK:
+			tweak_opts.color_notice_error = _es.get_setting("text_editor/theme/highlighting/comment_markers/critical_color")
+		if tweak_opts.color_notice_warning == Color.BLACK:
+			tweak_opts.color_notice_warning = _es.get_setting("text_editor/theme/highlighting/comment_markers/warning_color")
+		if tweak_opts.color_notice_notice == Color.BLACK:
+			tweak_opts.color_notice_notice = _es.get_setting("text_editor/theme/highlighting/comment_markers/notice_color")
+		if tweak_opts.color_notice_debug == Color.BLACK:
+			tweak_opts.color_notice_debug = _es.get_setting("text_editor/theme/highlighting/doc_comment_color")
+		if tweak_opts.color_notice_trace == Color.BLACK:
+			tweak_opts.color_notice_trace = _es.get_setting("text_editor/theme/highlighting/comment_color")
+
 
 
 #        ██████  ██████  ██████  ███████     ███████ ██████  ██ ████████       #

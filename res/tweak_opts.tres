@@ -4,13 +4,16 @@
 
 [resource]
 script = ExtResource("1_k2mri")
-debug = true
-experimental = true
-verbosity = 127
+enable_ligatures = true
 color_notice_critical = Color(0.77, 0.35, 0.35, 1)
 color_notice_error = Color(0.77, 0.35, 0.35, 1)
 color_notice_warning = Color(0.72, 0.61, 0.48, 1)
 color_notice_notice = Color(0.56, 0.67, 0.51, 1)
 color_notice_debug = Color(0.6, 0.7, 0.8, 0.8)
 color_notice_trace = Color(1, 1, 1, 0.5)
+use_monospace_glyphs = true
+enable_linespacing_tweaks = true
+adjust_linespacing_above = -4
+adjust_linespacing_below = -3
+make_method_trace_line = true
 metadata/_custom_type_script = "uid://bknlnwba5l18x"

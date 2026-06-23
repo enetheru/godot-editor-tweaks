@@ -393,7 +393,7 @@ static func enable() -> void: disabled = false
 
 static func get_level() -> int:
 	var path := _make_path()
-	for prefix in _levels:
+	for prefix:String in _levels:
 		if path.begins_with(prefix):
 			return _levels[prefix]
 	return _default_level
@@ -406,10 +406,9 @@ static func _make_path() -> String:
 	var depth: int = mini(10, stack.size())
 	for i in range(depth-1, 0, -1):
 		var frame: Dictionary = stack[i]
-		parts.append(frame.get("function", "<unknown>"))
-		# Optional: include source or line for more specificity
-		# parts.append(frame.get("source", ""))
-		# parts.append(str(frame.get("line", 0)))
+		var f:String = frame.get("function", "<unknown>")
+		@warning_ignore("return_value_discarded")
+		parts.push_back(f)
 	var path:String = "/".join(parts)
 	return path
 
@@ -425,10 +424,11 @@ static func push_level(new_level: int) -> StackPathLogScope:
 
 
 static func _pop(path: String) -> void:
+	@warning_ignore("return_value_discarded")
 	_levels.erase(path)
 
 
-static func check_level( lvl:int = get_level(), object:Object = null ) -> bool:
+static func check_level( what_lvl:int = get_level(), object:Object = null ) -> bool:
 	var class_lvl:int = _default_level
 	var local_lvl:int = _default_level
 
@@ -441,7 +441,7 @@ static func check_level( lvl:int = get_level(), object:Object = null ) -> bool:
 		local_lvl = variant if variant is int else 0
 
 	# Logging is additive
-	return (get_level() | class_lvl | local_lvl) & lvl
+	return (get_level() | class_lvl | local_lvl) & what_lvl
 
 
 ## Get the stack and strip the top n stack frames
@@ -610,14 +610,14 @@ static func format_key_value(key:Variant, value:Variant) -> String:
 	if value is Resource:
 		var r:Resource = value
 		if not r.resource_path.is_empty():
-			var link:String = link( r.resource_path, r.resource_path.get_file())
-			return "%s=%s" % [key, link]
+			var link_string:String = link( r.resource_path, r.resource_path.get_file())
+			return "%s=%s" % [key, link_string]
 
 		var r_script:Script = r.get_script()
 		if r_script:
 			var script_name:String = get_script_name(r_script)
-			var link:String = link( r_script.resource_path, script_name)
-			return "%s=%s" % [key, link]
+			var link_string:String = link( r_script.resource_path, script_name)
+			return "%s=%s" % [key, link_string]
 		return "%s=%s" % [key, r]
 
 	if value is Node:
@@ -849,7 +849,7 @@ static func _finalize_formatting(ctx: LogCtx) -> void:
 	if ctx.stack.size() > 1:
 		ctx.call_site = link('{source}:{line}'.format(ctx.stack[1]), ' ')
 	else:
-		link('{source}:{line}'.format(ctx.stack[0] if ctx.stack else {}), '󰘦 ')
+		ctx.call_site = link('{source}:{line}'.format(ctx.stack[0] if ctx.stack else {}), '󰘦 ')
 
 	# Header line (object part)
 
@@ -869,16 +869,17 @@ static func _finalize_formatting(ctx: LogCtx) -> void:
 			ctx.msg_icon = "[color={msg_color}]{msg_icon}[/color]".format(ctx)
 
 
-# TODO make this a formatting option.
+
 ## Reflows documentation text according to specified rules.
-##
-## - Preserves the first line exactly, where first line ends at the first top-level \n (not inside BBCode).
-## - Treats BBCode blocks (with nesting) as atomic: does not modify them or their content.
-## - Preserves top-level newlines (treats them as paragraph breaks).
-## - Reflows only top-level plain text segments longer than max_width (visible length), splitting on spaces/commas etc.
-## - Continuation lines indented by continuation_indent spaces.
-##
-## Returns array of lines (without trailing \n).
+##[br]
+##[br] - Preserves the first line exactly, where first line ends at the first top-level \n (not inside BBCode).
+##[br] - Treats BBCode blocks (with nesting) as atomic: does not modify them or their content.
+##[br] - Preserves top-level newlines (treats them as paragraph breaks).
+##[br] - Reflows only top-level plain text segments longer than max_width (visible length), splitting on spaces/commas etc.
+##[br] - Continuation lines indented by continuation_indent spaces.
+##[br]
+##[br]Returns array of lines (without trailing \n).
+##[br][color=goldenrod]TODO[/color]: make this a formatting option.
 static func _reflow_text(
 			text: String,
 			max_width: int = 88,
