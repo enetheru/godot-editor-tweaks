@@ -443,7 +443,7 @@ func editorlog_url_links_enabled() -> void:
 	output_rtl_og_conn = output_rtl.meta_clicked.get_connections()
 	for c : Dictionary  in output_rtl.meta_clicked.get_connections():
 		@warning_ignore('unsafe_call_argument')
-		output_rtl.meta_clicked.disconnect( c.get('callable') )
+		output_rtl.meta_clicked.disconnect( c.get(&'callable') )
 
 	@warning_ignore_start('return_value_discarded')
 	output_rtl.meta_clicked.connect(_on_editorlog_link_clicked, CONNECT_DEFERRED)
@@ -458,7 +458,7 @@ func editorlog_url_links_disabled() -> void:
 		output_rtl.meta_clicked.disconnect(_on_editorlog_link_clicked)
 	for c : Dictionary in output_rtl_og_conn:
 		@warning_ignore('unsafe_call_argument', 'return_value_discarded')
-		output_rtl.meta_clicked.connect( c.get('callable') )
+		output_rtl.meta_clicked.connect( c.get(&'callable') )
 
 #endregion Clickable Links
 
