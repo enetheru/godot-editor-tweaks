@@ -1,5 +1,6 @@
 @tool
-class_name EneLog
+class_name _EneLog
+extends Node
 ## │           _     _          [br]
 ## │  _ __ _ _(_)_ _| |_ _  _   [br]
 ## │ | '_ \ '_| | ' \  _| || |  [br]
@@ -50,9 +51,9 @@ enum LogLevel {
 	INCLUSIVE_DEFAULT = INCLUSIVE_NOTICE,
 }
 
-static var _levels: Dictionary = {}  # path_prefix -> level
-static var levels_mutex := Mutex.new()
-static var _default_level: int = LogLevel.INCLUSIVE_NOTICE
+var _levels: Dictionary = {}  # path_prefix -> level
+var levels_mutex := Mutex.new()
+var _default_level: int = LogLevel.INCLUSIVE_NOTICE
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -134,36 +135,36 @@ func                        ________PROPERTIES_______              ()->void:pass
 #  Shared configuration (locked when modified at runtime)
 # ─────────────────────────────────────────────────────────────────────────────
 
-static var disabled:bool = false
-static var max_level:int = LogLevel.MASK # aka all logging
-static var reset:bool = true
-static var top_level:bool = true
+var disabled:bool = false
+var max_level:int = LogLevel.MASK # aka all logging
+var reset:bool = true
+var top_level:bool = true
 
 # Frequency adjustment
-static var get_time:Callable = Time.get_ticks_usec
-static var last_time:int
-static var threshold:int = 1000
-static var delay_amount:int = 100
-static var last_frame:int = 0
-static var last_pframe:int = 0
+var get_time:Callable = Time.get_ticks_usec
+var last_time:int
+var threshold:int = 1000
+var delay_amount:int = 100
+var last_frame:int = 0
+var last_pframe:int = 0
 
 # Stack Flow (shared for continuity)
-static var prev_stack_mutex := Mutex.new()
-static var prev_stack:Array[Dictionary]
-static var prev_stack_size:int = 32
-static var prev_stack_dist:int = 0
+var prev_stack_mutex := Mutex.new()
+var prev_stack:Array[Dictionary]
+var prev_stack_size:int = 32
+var prev_stack_dist:int = 0
 
 # Filter
-static var ignore_filter:Array[String] = []
-static var thread_filter:Array = []
+var ignore_filter:Array[String] = []
+var thread_filter:Array = []
 
 # Process / Network
-static var net_id:int
-static var net_string:String
+var net_id:int
+var net_string:String
 
-static var is_net_valid:Callable = net_is_not_valid
-static var get_net_id:Callable = get_zero_int
-static var get_net_string:Callable = get_empty_string
+var is_net_valid:Callable = net_is_not_valid
+var get_net_id:Callable = get_zero_int
+var get_net_string:Callable = get_empty_string
 
 
 ## Modifyable formatting
@@ -183,8 +184,8 @@ static var get_net_string:Callable = get_empty_string
 ## match against the style name
 
 ## Styles, Colours, and Matchers
-static var styles_mutex := Mutex.new()
-static var styles:Dictionary[StringName, Dictionary] = {
+var styles_mutex := Mutex.new()
+var styles:Dictionary[StringName, Dictionary] = {
 	&'NOTE': {&'icon':" ", &'color':"greenyellow", &'regex':"^#? ?[Nn][Oo][Tt][Ee]"},
 	&'TODO': {&'icon':" ", &'color':"yellow", &'regex':"^#? ?[Tt][Oo][Dd][Oo]"},
 	&'FIXME':{&'icon':" ", &'color':"tomato", &'regex':"^#? ?[Ff][Ii][Xx][Mm][Ee]"},
@@ -201,19 +202,19 @@ static var styles:Dictionary[StringName, Dictionary] = {
 	&'SIG  ':{&'icon':" ", &'color':"orchid"},
 }
 
-static var process_color_mutex := Mutex.new()
-static var process_color:Dictionary[int, Color] = {}
+var process_color_mutex := Mutex.new()
+var process_color:Dictionary[int, Color] = {}
 
-static var thread_color_mutex := Mutex.new()
-static var thread_color:Dictionary[int, Color] = {}
+var thread_color_mutex := Mutex.new()
+var thread_color:Dictionary[int, Color] = {}
 
-static var header_color_mutex := Mutex.new()
-static var header_color:Dictionary[String, Color] = {}
+var header_color_mutex := Mutex.new()
+var header_color:Dictionary[String, Color] = {}
 
-static var type_match_mutex := Mutex.new()
-static var type_match:Array[Callable] = []
+var type_match_mutex := Mutex.new()
+var type_match:Array[Callable] = []
 
-static var color_dim_grey:String = Color(0.4, 0.4, 0.4).to_html()
+var color_dim_grey:String = Color(0.4, 0.4, 0.4).to_html()
 
 #      ██████  ██    ██ ███████ ██████  ██████  ██ ██████  ███████ ███████     #
 #     ██    ██ ██    ██ ██      ██   ██ ██   ██ ██ ██   ██ ██      ██          #
@@ -222,7 +223,7 @@ static var color_dim_grey:String = Color(0.4, 0.4, 0.4).to_html()
 #      ██████    ████   ███████ ██   ██ ██   ██ ██ ██████  ███████ ███████     #
 func                        ________OVERRIDES________              ()->void:pass
 
-static func _static_init() -> void:
+func _ready() -> void:
 	var want_enable:bool = false
 
 	var user_args:PackedStringArray = OS.get_cmdline_user_args()
@@ -268,7 +269,7 @@ static func _static_init() -> void:
 func                        __________PRINT__________              ()->void:pass
 
 
-static func trace(args: Dictionary = {}, stack: Array = [], object: Object = null) -> void:
+func trace(args: Dictionary = {}, stack: Array = [], object: Object = null) -> void:
 	if disabled: return
 	if OS.get_thread_caller_id() in thread_filter: return
 	if stack.is_empty():
@@ -289,7 +290,7 @@ static func trace(args: Dictionary = {}, stack: Array = [], object: Object = nul
 	printy("".join(parts), [], object, "", stack)
 
 
-static func printy(
+func printy(
 			content: Variant,
 			args_in: Variant = null,
 			object: Object = null,
@@ -332,11 +333,11 @@ static func printy(
 	_save_stack(ctx.stack)
 
 
-static func print_end_frame(physics: bool = false) -> void:
+func print_end_frame(physics: bool = false) -> void:
 	print_end_frame_deferred.call_deferred(physics)
 
 
-static func print_end_frame_deferred(_physics:bool = false) -> void:
+func print_end_frame_deferred(_physics:bool = false) -> void:
 	if not reset: return
 	top_level = true
 
@@ -352,7 +353,7 @@ static func print_end_frame_deferred(_physics:bool = false) -> void:
 	reset = false
 
 
-static func ptrace() -> void:
+func ptrace() -> void:
 	if _default_level < LogLevel.TRACE: return
 	if OS.get_thread_caller_id() in thread_filter:return
 	var colour:String = get_colour(LogLevel.TRACE).to_html()
@@ -362,7 +363,7 @@ static func ptrace() -> void:
 	print_rich( "[color=%s]%s[/color]" % [colour, line] )
 
 
-static func plog( level:int, ...message:Array ) -> void:
+func plog( level:int, ...message:Array ) -> void:
 	if _default_level < level: return
 	if OS.get_thread_caller_id() in thread_filter:return
 	var colour:String = get_colour(level).to_html()
@@ -370,7 +371,7 @@ static func plog( level:int, ...message:Array ) -> void:
 	print_rich( padding + "[color=%s]%s[/color]" % [colour, ' '.join(message)] )
 
 
-static func plog_check( level:int, ...message:Array ) -> bool:
+func plog_check( level:int, ...message:Array ) -> bool:
 	if _default_level < level: return false
 	plog(level, message)
 	return true
@@ -383,16 +384,16 @@ static func plog_check( level:int, ...message:Array ) -> bool:
 #         ██      ██ ███████    ██    ██   ██  ██████  ██████  ███████         #
 func                        _________METHODS_________              ()->void:pass
 
-static func lvl( level:int ) -> bool:
+func lvl( level:int ) -> bool:
 	return _default_level >= level
 
-static func disable() -> void: disabled = true
+func disable() -> void: disabled = true
 
 
-static func enable() -> void: disabled = false
+func enable() -> void: disabled = false
 
 
-static func get_level() -> int:
+func get_level() -> int:
 	var path := _make_path()
 	levels_mutex.lock()
 	for prefix:String in _levels:
@@ -404,7 +405,7 @@ static func get_level() -> int:
 	return _default_level
 
 
-static func _make_path() -> String:
+func _make_path() -> String:
 	var stack: Array[Dictionary] = get_stack_popped(4)
 	var parts: PackedStringArray = []
 	# Build compact path from top frames (tune depth)
@@ -420,7 +421,7 @@ static func _make_path() -> String:
 
 ## Push level for current stack path. Returns RAII guard.
 ## [br] FIXME: when a method is deferred, its stack begins again.
-static func push_level(new_level: int) -> StackPathLogScope:
+func push_level(new_level: int) -> StackPathLogScope:
 	# TODO, print when the scope starts, and when from.
 	# and then print when the scope finishes.
 	var path := _make_path()
@@ -430,14 +431,14 @@ static func push_level(new_level: int) -> StackPathLogScope:
 	return StackPathLogScope.new(path)
 
 
-static func _pop(path: String) -> void:
+func _pop(path: String) -> void:
 	levels_mutex.lock()
 	@warning_ignore("return_value_discarded")
 	_levels.erase(path)
 	levels_mutex.unlock()
 
 
-static func check_level( what_lvl:int = get_level(), object:Object = null ) -> bool:
+func check_level( what_lvl:int = get_level(), object:Object = null ) -> bool:
 	var class_lvl:int = _default_level
 	var local_lvl:int = _default_level
 
@@ -454,13 +455,13 @@ static func check_level( what_lvl:int = get_level(), object:Object = null ) -> b
 
 
 ## Get the stack and strip the top n stack frames
-static func get_stack_popped( n:int = 0 ) -> Array:
+func get_stack_popped( n:int = 0 ) -> Array:
 	var stack:Array = get_stack()
 	for i in mini(n+1,stack.size()-1): stack.pop_front()
 	return stack
 
 
-static func add_style(style_name: StringName, new_style: Dictionary) -> void:
+func add_style(style_name: StringName, new_style: Dictionary) -> void:
 	if styles.has(style_name):
 		printy("Overwriting Style: ", style_name)
 
@@ -478,14 +479,14 @@ static func add_style(style_name: StringName, new_style: Dictionary) -> void:
 	styles_mutex.unlock()
 
 
-static func net_is_not_valid() -> bool: return false
+func net_is_not_valid() -> bool: return false
 
 
-static func get_zero_int() -> int: return 0
+func get_zero_int() -> int: return 0
 
 
 ## Match the flag of most importance
-static func get_colour(type:int) -> Color:
+func get_colour(type:int) -> Color:
 	if type & LogLevel.TRACE:    return TWEAK_OPTS.color_notice_trace
 	if type & LogLevel.DEBUG:    return TWEAK_OPTS.color_notice_debug
 	if type & LogLevel.NOTICE:   return TWEAK_OPTS.color_notice_notice
@@ -502,10 +503,10 @@ static func get_colour(type:int) -> Color:
 #               ███████    ██    ██   ██ ██ ██   ████  ██████                  #
 func                        __________STRING_________              ()->void:pass
 
-static func get_empty_string() -> String: return ""
+func get_empty_string() -> String: return ""
 
 
-static func get_script_name(script: Script) -> String:
+func get_script_name(script: Script) -> String:
 	var name:String = script.get_global_name()
 	if name.is_empty() and script.get_base_script():
 		name = script.get_base_script().get_global_name()
@@ -515,13 +516,13 @@ static func get_script_name(script: Script) -> String:
 
 
 ## Returns a BBCode URL link string.
-static func link( url:String, text:String = "" ) -> String:
+func link( url:String, text:String = "" ) -> String:
 	return "[u '{osco}{url}{osct}'][url={url}]{text}[/url][/u][u '{oscc}'][/u]".format({
 		&'osco':OSC_LINK_OPEN, &'osct':OSC_ST, &'oscc':OSC_LINK_CLOSE,
 		&'url':url, &'text':(url if text.is_empty() else text) })
 
 
-static func strip_bbcode(s: String) -> String:
+func strip_bbcode(s: String) -> String:
 	var regex := RegEx.new()
 	if regex.compile("\\[.*?\\]") != OK:
 		return "regex error"
@@ -529,7 +530,7 @@ static func strip_bbcode(s: String) -> String:
 
 
 # args dictionary values depending on their type.
-static func format_key_value(key:Variant, value:Variant) -> String:
+func format_key_value(key:Variant, value:Variant) -> String:
 	var type_val:int = typeof(value)
 	match type_val:
 		TYPE_NIL, TYPE_BOOL:
@@ -648,7 +649,7 @@ static func format_key_value(key:Variant, value:Variant) -> String:
 #             ██      ██   ██ ██   ████   ██   ██    ██    ███████             #
 func                        _________PRIVATE_________              ()->void:pass
 
-static func _build_context(
+func _build_context(
 	content: Variant,
 	args_in: Variant,
 	object: Object,
@@ -686,11 +687,11 @@ static func _build_context(
 	return ctx
 
 
-static func _is_ignored(ctx: LogCtx) -> bool:
+func _is_ignored(ctx: LogCtx) -> bool:
 	return str(ctx.content) in ignore_filter
 
 
-static func _compute_stack_distance(ctx: LogCtx) -> void:
+func _compute_stack_distance(ctx: LogCtx) -> void:
 	prev_stack_mutex.lock()
 	ctx.distance = ctx.stack_size - prev_stack_size
 	prev_stack_dist = ctx.distance
@@ -722,7 +723,7 @@ static func _compute_stack_distance(ctx: LogCtx) -> void:
 		ctx.flow_return = "┌─" + "──".repeat(absi(ctx.distance+1)) + "┘"
 
 
-static func _apply_thread_and_proc_info(ctx: LogCtx) -> void:
+func _apply_thread_and_proc_info(ctx: LogCtx) -> void:
 	if ctx.thread_id == OS.get_main_thread_id():
 		# Main Thread
 		ctx.proc_icon = ""
@@ -735,7 +736,7 @@ static func _apply_thread_and_proc_info(ctx: LogCtx) -> void:
 		ctx.proc_icon = ""
 
 
-static func _apply_network_info(ctx: LogCtx) -> void:
+func _apply_network_info(ctx: LogCtx) -> void:
 	var rpc_string := ""
 	if (
 		Thread.is_main_thread()
@@ -760,7 +761,7 @@ static func _apply_network_info(ctx: LogCtx) -> void:
 	ctx.rpc = "      " if rpc_string.is_empty() else rpc_string
 
 
-static func _apply_object_formatting(ctx: LogCtx) -> void:
+func _apply_object_formatting(ctx: LogCtx) -> void:
 	if not ctx.object is Object:
 		if ctx.object != null:
 			ctx.header_name = type_string(typeof(ctx.object))
@@ -792,7 +793,7 @@ static func _apply_object_formatting(ctx: LogCtx) -> void:
 		ctx.header_color = col.to_html()
 
 
-static func _apply_style(ctx: LogCtx) -> void:
+func _apply_style(ctx: LogCtx) -> void:
 	if not ctx.content is String:
 		ctx.msg_icon = " "
 		ctx.msg_text = "\n".join([str(ctx.content)] + ctx.args)
@@ -833,7 +834,7 @@ static func _apply_style(ctx: LogCtx) -> void:
 	ctx.msg_text = raw_msg.trim_prefix(prefix)
 
 
-static func _finalize_formatting(ctx: LogCtx) -> void:
+func _finalize_formatting(ctx: LogCtx) -> void:
 	# time
 	ctx.time = ''.join([
 		ctx.time_icon,
@@ -889,7 +890,7 @@ static func _finalize_formatting(ctx: LogCtx) -> void:
 ##[br]
 ##[br]Returns array of lines (without trailing \n).
 ##[br][color=goldenrod]TODO[/color]: make this a formatting option.
-static func _reflow_text(
+func _reflow_text(
 			text: String,
 			max_width: int = 88,
 			continuation_indent: int = 4) -> Array[String]:
@@ -966,7 +967,7 @@ static func _reflow_text(
 
 ## Finds position of first top-level \n (not inside BBCode).
 ## Returns -1 if none.
-static func _find_first_top_level_newline(s: String) -> int:
+func _find_first_top_level_newline(s: String) -> int:
 	var i: int = 0
 	var n: int = s.length()
 	var depth: int = 0  # BBCode nesting depth
@@ -1000,7 +1001,7 @@ static func _find_first_top_level_newline(s: String) -> int:
 
 ## Given start at [, finds the end ] of the matching [/tag], handling nesting.
 ## Returns -1 if invalid or unmatched.
-static func _find_bbcode_block_end(s: String, start: int) -> int:
+func _find_bbcode_block_end(s: String, start: int) -> int:
 	if s[start] != '[' or start + 1 >= s.length():
 		return -1
 
@@ -1050,7 +1051,7 @@ static func _find_bbcode_block_end(s: String, start: int) -> int:
 
 ## Reflows a plain text paragraph (no [ ] assumed).
 ## Splits on spaces, commas, etc.
-static func _reflow_plain_paragraph(text: String, max_width: int, continuation_indent: int) -> Array[String]:
+func _reflow_plain_paragraph(text: String, max_width: int, continuation_indent: int) -> Array[String]:
 	var lines: Array[String] = []
 	var current_line := ""
 	var current_len := 0
@@ -1078,7 +1079,7 @@ static func _reflow_plain_paragraph(text: String, max_width: int, continuation_i
 
 ## Splits plain text on delimiters for wrapping (spaces, commas, etc.).
 ## Returns array of tokens (words + delimiters?).
-static func _split_plain_text(s: String) -> Array[String]:
+func _split_plain_text(s: String) -> Array[String]:
 	var result: Array[String] = []
 	var current := ""
 	var i := 0
@@ -1098,7 +1099,7 @@ static func _split_plain_text(s: String) -> Array[String]:
 	return result
 
 
-static func _print_normal(ctx: LogCtx) -> void:
+func _print_normal(ctx: LogCtx) -> void:
 	# Return Flow
 	if ctx.distance < 0:
 		print_rich( ctx.left,
@@ -1132,7 +1133,7 @@ static func _print_normal(ctx: LogCtx) -> void:
 	if not ctx.after.is_empty(): print_rich(ctx.after)
 
 
-static func _print_as_error(ctx: LogCtx) -> void:
+func _print_as_error(ctx: LogCtx) -> void:
 	print_rich("".join([
 		"[pulse freq=2 color=#FFFFFF70]",
 		ctx.left, ctx.msg_icon, ctx.flow, ctx.call_site, ctx.header,
@@ -1145,7 +1146,7 @@ static func _print_as_error(ctx: LogCtx) -> void:
 		print_rich("[color=salmon]" + link("{source}:{line}".format(frame)) + ":{function}[/color]".format(frame))
 
 
-static func _print_as_warning(ctx: LogCtx) -> void:
+func _print_as_warning(ctx: LogCtx) -> void:
 	print_rich("".join([
 		"[pulse freq=2 color=gold]",
 		ctx.left, ctx.msg_icon, ctx.flow, ctx.call_site, ctx.header,
@@ -1158,7 +1159,7 @@ static func _print_as_warning(ctx: LogCtx) -> void:
 		print_rich(link("{source}:{line}".format(frame)) + ":{function}".format(frame))
 
 
-static func _save_stack(stack: Array[Dictionary]) -> void:
+func _save_stack(stack: Array[Dictionary]) -> void:
 	prev_stack_mutex.lock()
 	prev_stack_dist = stack.size() - prev_stack_size
 	prev_stack_size = stack.size()
@@ -1173,7 +1174,7 @@ static func _save_stack(stack: Array[Dictionary]) -> void:
 #     ███████ ██   ██ ██   ██ ██      ██ ██      ███████ ███████ ███████       #
 func                        ________EXAMPLES_________              ()->void:pass
 
-static func example_net_string() -> String:
+func example_net_string() -> String:
 	var server : bool = false
 	var main_loop :SceneTree = Engine.get_main_loop()
 	if main_loop \
@@ -1190,7 +1191,7 @@ static func example_net_string() -> String:
 
 
 # Example type matcher for an object:
-static func null_matcher( v:Variant, ctx:LogCtx ) -> void:
+func null_matcher( v:Variant, ctx:LogCtx ) -> void:
 	if v == null:
 		ctx.header_icon = ' '
 		ctx.header_color = "salmon"
