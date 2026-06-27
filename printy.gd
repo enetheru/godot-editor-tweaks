@@ -51,6 +51,7 @@ enum LogLevel {
 }
 
 static var _levels: Dictionary = {}  # path_prefix -> level
+static var levels_mutex := Mutex.new()
 static var _default_level: int = LogLevel.INCLUSIVE_NOTICE
 
 
@@ -393,9 +394,13 @@ static func enable() -> void: disabled = false
 
 static func get_level() -> int:
 	var path := _make_path()
+	levels_mutex.lock()
 	for prefix:String in _levels:
 		if path.begins_with(prefix):
-			return _levels[prefix]
+			var lvl:int = _levels[prefix]
+			levels_mutex.unlock()
+			return lvl
+	levels_mutex.unlock()
 	return _default_level
 
 
@@ -419,13 +424,17 @@ static func push_level(new_level: int) -> StackPathLogScope:
 	# TODO, print when the scope starts, and when from.
 	# and then print when the scope finishes.
 	var path := _make_path()
+	levels_mutex.lock()
 	_levels[path] = new_level
+	levels_mutex.unlock()
 	return StackPathLogScope.new(path)
 
 
 static func _pop(path: String) -> void:
+	levels_mutex.lock()
 	@warning_ignore("return_value_discarded")
 	_levels.erase(path)
+	levels_mutex.unlock()
 
 
 static func check_level( what_lvl:int = get_level(), object:Object = null ) -> bool:
@@ -1110,9 +1119,7 @@ static func _print_normal(ctx: LogCtx) -> void:
 	# TODO I need to figure out how i can get the width of the output console.
 
 	var wrapped_lines:Array = _reflow_text(ctx.msg, 80, 0)
-	var reflow_left:String = strip_bbcode(ctx.left)
-	for i in reflow_left.length() -1:
-		reflow_left[i] = ' '
+	var reflow_left:String = " ".repeat(strip_bbcode(ctx.left).length())
 
 	for i in wrapped_lines.size():
 		if i == 0:
@@ -1151,7 +1158,7 @@ static func _print_as_warning(ctx: LogCtx) -> void:
 		print_rich(link("{source}:{line}".format(frame)) + ":{function}".format(frame))
 
 
-static func _save_stack(stack: Array) -> void:
+static func _save_stack(stack: Array[Dictionary]) -> void:
 	prev_stack_mutex.lock()
 	prev_stack_dist = stack.size() - prev_stack_size
 	prev_stack_size = stack.size()
