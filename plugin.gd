@@ -7,8 +7,6 @@ const Self = preload('uid://setvleg6sni3')
 # loading, that way we might be able to devise a way to automatically clone
 # and update plugins like the vim lazy codebase does.
 
-const Print = preload("uid://babswmnh2kosn")
-
 const EditorIntegration = preload("uid://cl0kj8qvnhfam")
 
 const SettingsHalpr = preload("uid://o5djwaewipdy")
@@ -29,6 +27,8 @@ func                        ________PROPERTIES_______              ()->void:pass
 static var _prime:Self
 static var plugin_dir:String
 static var plugin_path:String
+
+static var Print:_EneLog
 
 var export_plugin: EditorExportPlugin
 
@@ -105,6 +105,14 @@ func _on_project_settings_changed(
 #     ██    ██  ██  ██  ██      ██   ██ ██   ██ ██ ██   ██ ██           ██     #
 #      ██████    ████   ███████ ██   ██ ██   ██ ██ ██████  ███████ ███████     #
 func                        ________OVERRIDES________              ()->void:pass
+
+static func _static_init() -> void:
+	if Engine.has_singleton(&'EneLog'):
+		Print = Engine.get_singleton(&'EneLog')
+	else:
+		Print = _EneLog.new()
+		Engine.register_singleton(&'EneLog', Print)
+
 
 func _init() -> void:
 	Print.ptrace()
