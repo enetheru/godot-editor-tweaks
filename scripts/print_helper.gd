@@ -1,9 +1,24 @@
 @tool
+## Lightweight static print helpers used by [code]settings.gd[/code].
+##
+##[br][color=tomato]FIXME[/color]: This is a second logger beside autoload
+## [code]EneLog[/code] ([code]EneLog.gd[/code] / [code]_EneLog[/code]).
+## [LogLevel] here is sequential (0..6); EneLog uses bitmasks; [TweakOptions]
+## [member TweakOptions.verbosity] is [code]@export_flags[/code]. Those three
+## disagree — consolidate before relying on level filtering.
+##[br][color=goldenrod]TODO[/color]: Drop hand-rolled [HintEnum] /
+## [UsageFlags] and use engine [enum PropertyHint] / [enum PropertyUsageFlags]
+## names (or document why bit-position indices are required).
+##[br][color=goldenrod]TODO[/color]: Move property-flag utilities out of a
+## "print helper" into a small settings/reflection util.
+
 # │ ___    _ _ _           _
 # │| __|__| (_) |_ ___ _ _| |   ___  __ _
 # │| _|/ _` | |  _/ _ \ '_| |__/ _ \/ _` |
 # │|___\__,_|_|\__\___/_| |____\___/\__, |
 # ╰─────────────────────────────────|___/──
+
+# FIXME: sequential enum — does not match EneLog.LogLevel bitmasks.
 enum LogLevel {
 	SILENT = 0,
 	CRITICAL = 1,
@@ -15,6 +30,7 @@ enum LogLevel {
 }
 
 
+# TODO: Prefer engine PropertyHint constants; these mirror hint ints for debug.
 enum HintEnum {
 	PROPERTY_HINT_NONE = 0,
 	PROPERTY_HINT_RANGE = 1,
@@ -63,7 +79,9 @@ enum HintEnum {
 	PROPERTY_HINT_MAX = 45
 }
 
-# flag_name = bit position
+
+# flag_name = bit position (1-based index into PackedByteArray bits).
+# FIXME: PROPERTY_USAGE_EDITOR_BASIC_SETTING and READ_ONLY both map to 28.
 enum UsageFlags {
 	INVALID = 1,
 	PROPERTY_USAGE_STORAGE = 2,
@@ -102,17 +120,22 @@ const Plugin = preload("uid://setvleg6sni3")
 static var _opts:TweakOptions:
 	get():
 		if Plugin._prime:
-			var opts := Plugin._prime.opts
-			if opts: _opts = opts
+			var opts:TweakOptions = Plugin._prime.opts
+			if opts:
+				_opts = opts
 		return _opts
-	set(v):_opts = v
+	set(v):
+		_opts = v
 
 
-static var _verbosity:int :
+# NOTE: compared with sequential LogLevel below, but opts.verbosity is flags.
+static var _verbosity:int:
 	get():
-		if _opts: return _opts.verbosity
-		else: return LogLevel.CRITICAL
-	set(v):pass
+		if _opts:
+			return _opts.verbosity
+		return LogLevel.CRITICAL
+	set(_v):
+		pass
 
 
 static func bitmask_array( value:int, max_width:int ) -> PackedByteArray:
@@ -139,37 +162,48 @@ static func get_call_site(depth:int = 1) -> String:
 	return "[url='{source}:{line}']{source}:{line}:{function}()[/url]".format(frame)
 
 
-## Sparse/Simple print to the output console
-## if [enum LogLevel] >= [constant LogLevel.TRACE]
+## Sparse/simple print to the output console when level is allowed.
+##[br]FIXME: null-deref if [member _opts] is not ready; guard or require init.
 static func slog( level:LogLevel, ...message:Array ) -> void:
-	if _verbosity < level: return
+	if _verbosity < level:
+		return
+	if _opts == null:
+		return
 	var colour:String = _opts.get_colour(level).to_html()
-	print_rich( "[color=%s]%s[/color]" % [colour, ' '.join(message)] )
+	print_rich("[color=%s]%s[/color]" % [colour, " ".join(message)])
 
 
-## Print to the output console padding + the current source loation
-## if [enum LogLevel] >= [constant LogLevel.TRACE], where padding is set by
-## the size of the GDScript stack.
+## Print the current source location when TRACE is allowed.
 static func ptrace() -> void:
-	if _verbosity < LogLevel.TRACE: return
-	var colour:String = _opts .get_colour(LogLevel.TRACE).to_html()
+	if _verbosity < LogLevel.TRACE:
+		return
+	if _opts == null:
+		return
+	var colour:String = _opts.get_colour(LogLevel.TRACE).to_html()
 	var call_site:Dictionary = get_stack()[-1]
-	var line:String = "[url='{source}:{line}'][color=57b3ff]{function}[/color][/url]".format(call_site)
-	print_rich( "[color=%s]%s[/color]" % [colour, line] )
+	var line:String = (
+		"[url='{source}:{line}'][color=57b3ff]{function}[/color][/url]"
+		.format(call_site))
+	print_rich("[color=%s]%s[/color]" % [colour, line])
 
 
-## Print to the output console padding + [param message], where padding is set by
-## the size of the GDScript stack.
+## Print [param message] with optional TRACE stack-depth padding.
 static func plog( level:LogLevel, ...message:Array ) -> void:
-	if _verbosity < level: return
+	if _verbosity < level:
+		return
+	if _opts == null:
+		return
 	var colour:String = _opts.get_colour(level).to_html()
-	var padding:String = "".lpad(get_stack().size()-1, '\t') if level == LogLevel.TRACE else ""
-	print_rich( padding + "[color=%s]%s[/color]" % [colour, ' '.join(message)] )
+	var padding:String = (
+		"".lpad(get_stack().size() - 1, "\t")
+		if level == LogLevel.TRACE else "")
+	print_rich(padding + "[color=%s]%s[/color]" % [colour, " ".join(message)])
 
 
-## The same as plog, returning the result of the level check.
+## Same as [method plog], returning whether the level check passed.
 static func plog_check( level:LogLevel, ...message:Array ) -> bool:
-	if _verbosity < level: return false
+	if _verbosity < level:
+		return false
 	plog(level, message)
 	return true
 

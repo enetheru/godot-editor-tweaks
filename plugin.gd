@@ -1,11 +1,18 @@
 @tool
 extends EditorPlugin
+## Kitchen-sink editor tweaks: Output log, code editor, settings bridge, logging.
+##
+##[br][color=tomato]FIXME[/color]: Plugin has grown past one concern. Split into
+## focused modules (log discovery, Output log search, code-editor menus,
+## settings, logging) with this file as a thin orchestrator.
+##[br][color=tomato]FIXME[/color]: Dual loggers — autoload [code]EneLog[/code]
+## ([code]EneLog.gd[/code]) vs static [code]print_helper.gd[/code]; unify levels.
+##[br][color=goldenrod]TODO[/color]: Dependency check before load (lazy plugin
+## bootstrap, vim-lazy style).
+##[br][color=goldenrod]TODO[/color]: Several toggles are stubs (search bar,
+## rotate BBCode, clickable URLs, monospace glyphs) — re-enable or remove.
 
-const Self = preload('uid://setvleg6sni3')
-
-# TODO make the plugin more bare bones that check for dependencies before
-# loading, that way we might be able to devise a way to automatically clone
-# and update plugins like the vim lazy codebase does.
+const Self = preload("uid://setvleg6sni3")
 
 const EditorIntegration = preload("uid://cl0kj8qvnhfam")
 
@@ -30,17 +37,17 @@ static var plugin_path:String
 
 static var Print:_EneLog
 
-var export_plugin: EditorExportPlugin
+var export_plugin:EditorExportPlugin
 
-# should be static no?
+# TODO: should opts be static / shared via a single resource owner?
 var opts:TweakOptions
 
-var editorlog_font_names : PackedStringArray = [
-	'output_source',
-	'output_source_bold',
-	'output_source_italic',
-	'output_source_bold_italic',
-	'output_source_mono']
+var editorlog_font_names:PackedStringArray = [
+	"output_source",
+	"output_source_bold",
+	"output_source_italic",
+	"output_source_bold_italic",
+	"output_source_mono"]
 
 #             ███████ ██    ██ ███████ ███    ██ ████████ ███████              #
 #             ██      ██    ██ ██      ████   ██    ██    ██                   #
@@ -49,38 +56,44 @@ var editorlog_font_names : PackedStringArray = [
 #             ███████   ████   ███████ ██   ████    ██    ███████              #
 func                        __________EVENTS_________              ()->void:pass
 
-func _on_editorlog_link_clicked( meta : Variant ) -> void:
-	var url : String = meta
-	if not url: return
+func _on_editorlog_link_clicked( meta:Variant ) -> void:
+	var url:String = str(meta)
+	if url.is_empty():
+		return
 	if not "://" in url:
 		Print.plog(Print.LogLevel.DEFAULT, "url: %s" % url)
 		return
 	if url.begins_with("res://"):
-		var parts : PackedStringArray = url.split(':')
+		# res://path:line:col — path may contain ":" only after scheme.
+		var parts:PackedStringArray = url.split(":")
 		url = ":".join([parts[0], parts[1]])
-		var line : int = 0
-		var col : int = 0
+		var line:int = 0
+		var col:int = 0
 		match url.get_extension():
 			"gd":
-				if parts.size() > 2: line = parts[2].to_int()
-				if parts.size() > 3: col = parts[3].to_int()
-				var script : Script = load(url)
+				if parts.size() > 2:
+					line = parts[2].to_int()
+				if parts.size() > 3:
+					col = parts[3].to_int()
+				var script:Script = load(url)
 				EditorInterface.edit_script(script, line, col)
 			_:
 				EditorInterface.edit_resource(load(url))
 	else:
 		Print.plog(Print.LogLevel.DEFAULT, "url: %s" % url)
-		@warning_ignore('return_value_discarded')
-		OS.shell_open( url )
+		@warning_ignore("return_value_discarded")
+		OS.shell_open(url)
 
 
-#TODO  I want a setting path in here too so that if a setting fails, it can be reverted.
+# TODO: include setting path so a bad write can be reverted.
+# FIXME: non-bool settings leave [code]b[/code] default-false — only safe for
+# bool toggles; cast explicitly per key or branch on typeof.
 func _on_project_settings_changed(
 			setting_name:String, setting_value:Variant ) -> void:
-	Print.plog(Print.LogLevel.TRACE, ''.join([setting_name, ':', setting_value]))
-	var b:bool
-	match typeof(setting_value):
-		TYPE_BOOL: b = setting_value
+	Print.plog(Print.LogLevel.TRACE, "".join([setting_name, ":", setting_value]))
+	var b:bool = false
+	if typeof(setting_value) == TYPE_BOOL:
+		b = setting_value
 	match setting_name:
 		"experimental" when setting_value == true: enable_experimental_features()
 		"experimental": disable_experimental_features()
@@ -121,7 +134,7 @@ func _init() -> void:
 	plugin_path = get_script().resource_path
 	plugin_dir = plugin_path.get_base_dir()
 
-	opts  = load(plugin_dir + "/res/tweak_opts.tres")
+	opts = load(plugin_dir.path_join("res/tweak_opts.tres"))
 	default_tweak_options(opts)
 	settings_hlp = SettingsHalpr.new(opts, plugin_name)
 
@@ -131,7 +144,7 @@ func _init() -> void:
 	icons_dump = Self.dump_icons
 	colours_dump = Self.dump_colours
 
-	Print.plog( Print.LogLevel.DEBUG, "%s._init() - Completed" % name )
+	Print.plog(Print.LogLevel.DEBUG, "%s._init() - Completed" % name)
 
 
 func _enter_tree() -> void:
@@ -194,56 +207,38 @@ func disable_experimental_features() -> void:
 	Print.plog( Print.LogLevel.DEBUG, "disable_experimental_features" )
 
 
-static var editor_log:Control
+# EditorLog discovery — prefer EditorIntegration; keep thin wrappers for
+# existing call sites (dump_icons, url links, etc.).
+# FIXME: drop local duplicates of editor_log once all callers use Integration.
+
 static func get_editorlog_4_5() -> BoxContainer:
 	Print.ptrace()
-	if is_instance_valid(editor_log): return editor_log
-	var base_control : Control = EditorInterface.get_base_control()
-	editor_log = base_control.find_child("*EditorLog*", true, false)
-	if is_instance_valid(editor_log): return editor_log
-	push_error("Unable to find EditorLog")
-	return null
+	return EditorIntegration.get_editorlog_4_5()
 
 
 static func get_editorlog_4_6() -> Control:
 	Print.ptrace()
-	if is_instance_valid(editor_log): return editor_log
-	var base_control : Control = EditorInterface.get_base_control()
-	var maybe:Control = base_control.find_child("*Output*", true, false)
-	if is_instance_valid(maybe):
-		editor_log = maybe
-		return maybe
-	push_error("Unable to find EditorLog")
-	return null
+	return EditorIntegration.get_editorlog_4_6()
 
 
 static func get_editorlog() -> Control:
 	Print.ptrace()
-	var version:Dictionary = Engine.get_version_info()
-	if version.major >= 4:
-		if version.minor >= 6:
-			return get_editorlog_4_6()
-		if version.minor < 6:
-			return get_editorlog_4_5()
-	return null
+	return EditorIntegration.get_editorlog()
 
 
 static func get_output_rtl() -> RichTextLabel:
 	Print.ptrace()
-	return null
-	#if is_instance_valid(output_rtl): return output_rtl
-	#if is_instance_valid(get_editorlog()):
-		#output_rtl = editor_log.find_child("*Rich*", true, false)
-		#if is_instance_valid(output_rtl):return output_rtl
-		#push_error("Unable to find RichTextLabel in EditorLog's children")
-	#return null
+	return EditorIntegration.get_output_rtl()
+
 
 static func get_code_font() -> FontVariation:
 	Print.ptrace()
 	var editor_theme:Theme = EditorInterface.get_editor_theme()
 	var code_edit_font:FontVariation = editor_theme.get_font("font", "CodeEdit")
-	if is_instance_valid(code_edit_font): return code_edit_font
-	Print.plog(Print.LogLevel.ERROR, "Unable to find CodeEdit font in editor theme")
+	if is_instance_valid(code_edit_font):
+		return code_edit_font
+	Print.plog(Print.LogLevel.ERROR,
+		"Unable to find CodeEdit font in editor theme")
 	return null
 
 
@@ -360,13 +355,18 @@ func                        __Ligatures______________              ()->void:pass
 ## Ligatures By-Line
 ##
 ## Ligatures Description
-func editorlog_ligatures_toggle( toggled_on : bool ) -> void:
+func editorlog_ligatures_toggle( toggled_on:bool ) -> void:
 	Print.ptrace()
-	if toggled_on: Print.plog(Print.LogLevel.DEFAULT, "Enable EditorLog Ligatures")
-	else: Print.plog(Print.LogLevel.DEFAULT, "Disable EditorLog Ligatures")
+	if toggled_on:
+		Print.plog(Print.LogLevel.DEFAULT, "Enable EditorLog Ligatures")
+	else:
+		Print.plog(Print.LogLevel.DEFAULT, "Disable EditorLog Ligatures")
 	var editor_theme:Theme = EditorInterface.get_editor_theme()
-	for font_name in editorlog_font_names:
-		var font : FontVariation = editor_theme.get_font(font_name, "EditorFonts")
+	# 1667329140 = 'calt' OpenType feature tag.
+	for font_name:String in editorlog_font_names:
+		var font:FontVariation = editor_theme.get_font(font_name, "EditorFonts")
+		if not is_instance_valid(font):
+			continue
 		font.opentype_features = {1667329140: 1 if toggled_on else 0}
 
 #endregion Ligatures
@@ -385,18 +385,10 @@ func                        __BBCode_Rotate__________              ()->void:pass
 ## BBCode Rotate Description
 # var sideways_effect : RichTextEffect = preload('sideways_effect.tres')
 
-func editorlog_rotate_toggle( _toggled_on : bool ) -> void:
+func editorlog_rotate_toggle( _toggled_on:bool ) -> void:
 	Print.ptrace()
-	# if not is_instance_valid(output_rtl): return
-	# if not is_instance_valid(sideways_effect): return
-
-	# if toggled_on:
-		# Print.plog(Print.LogLevel.DEFAULT, "Enable EditorLog Sideways Text Effect")
-		# output_rtl.install_effect(sideways_effect)
-	# else:
-		# Print.plog(Print.LogLevel.DEFAULT, "Disable EditorLog Sideways Text Effect")
-		# if sideways_effect in output_rtl.custom_effects:
-			# output_rtl.custom_effects.erase(sideways_effect)
+	# FIXME: body commented out — sideways_effect never installed.
+	# Needs get_output_rtl() + preload('sideways_effect.tres').
 #endregion BBCode Rotate
 
 
@@ -411,10 +403,12 @@ func                        __Search_Bar_____________              ()->void:pass
 ## Search Bar By-Line
 ##
 ## Search Bar Description
-func editorlog_search_toggle( _toggled_on : bool ) -> void:
+func editorlog_search_toggle( _toggled_on:bool ) -> void:
 	Print.ptrace()
-	# if not is_instance_valid(editor_log): return
-	# EditorLog.toggle_search_bar(editor_log, toggled_on)
+	# FIXME: re-enable via editorlog.gd once EditorLog discovery is stable:
+	# var logref:BoxContainer = get_editorlog() as BoxContainer
+	# if is_instance_valid(logref):
+	# 	EditorLog.toggle_search_bar(logref, _toggled_on)
 
 #endregion Search Bar
 
@@ -429,14 +423,13 @@ func                        __Clickable_Links________              ()->void:pass
 ## Clickable Links By-Line
 ##
 ## Clickable Links Description
-# TODO Move code to editorlog helper class
-# TODO create a registry for URL handlers that can be updated in the settings.
-var output_rtl_og_conn : Array
+# TODO: Move URL handling into editorlog helper class.
+# TODO: Registry for URL handlers configurable from settings.
+var output_rtl_og_conn:Array
 
 func editorlog_url_links_set( _toggle_on:bool ) -> void:
 	Print.ptrace()
-	#if toggle_on: editorlog_url_links_enabled()
-	#else: editorlog_url_links_disabled()
+	# FIXME: body disabled — call editorlog_url_links_enabled/disabled.
 
 
 func editorlog_url_links_enabled() -> void:
@@ -449,24 +442,25 @@ func editorlog_url_links_enabled() -> void:
 
 	# Remove default annoying URL handling.
 	output_rtl_og_conn = output_rtl.meta_clicked.get_connections()
-	for c : Dictionary  in output_rtl.meta_clicked.get_connections():
-		@warning_ignore('unsafe_call_argument')
-		output_rtl.meta_clicked.disconnect( c.get(&'callable') )
+	for c:Dictionary in output_rtl.meta_clicked.get_connections():
+		@warning_ignore("unsafe_call_argument")
+		output_rtl.meta_clicked.disconnect(c.get(&"callable"))
 
-	@warning_ignore_start('return_value_discarded')
+	@warning_ignore_start("return_value_discarded")
 	output_rtl.meta_clicked.connect(_on_editorlog_link_clicked, CONNECT_DEFERRED)
-	@warning_ignore_restore('return_value_discarded')
+	@warning_ignore_restore("return_value_discarded")
 
 
 func editorlog_url_links_disabled() -> void:
 	var output_rtl:RichTextLabel = get_output_rtl()
-	if not is_instance_valid( output_rtl ): return
+	if not is_instance_valid(output_rtl):
+		return
 	Print.ptrace()
 	if output_rtl.meta_clicked.is_connected(_on_editorlog_link_clicked):
 		output_rtl.meta_clicked.disconnect(_on_editorlog_link_clicked)
-	for c : Dictionary in output_rtl_og_conn:
-		@warning_ignore('unsafe_call_argument', 'return_value_discarded')
-		output_rtl.meta_clicked.connect( c.get(&'callable') )
+	for c:Dictionary in output_rtl_og_conn:
+		@warning_ignore("unsafe_call_argument", "return_value_discarded")
+		output_rtl.meta_clicked.connect(c.get(&"callable"))
 
 #endregion Clickable Links
 
@@ -489,28 +483,32 @@ func                        __RichPaste______________              ()->void:pass
 var rich_paste_factory:Object
 var rich_paste_cm:EditorContextMenuPlugin
 
-func editorlog_rich_paste_toggle( toggled_on : bool ) -> void:
+func editorlog_rich_paste_toggle( toggled_on:bool ) -> void:
 	Print.ptrace()
 	if toggled_on:
+		if is_instance_valid(rich_paste_cm):
+			return
 		if not is_instance_valid(rich_paste_factory):
-			var rich_paste_script_path:String = plugin_dir.path_join("scripts/rich_paste.gd")
+			var rich_paste_script_path:String = plugin_dir.path_join(
+				"scripts/rich_paste.gd")
 			rich_paste_factory = load(rich_paste_script_path)
-		# if still not
 		if not is_instance_valid(rich_paste_factory):
-			Print.plog(Print.LogLevel.ERROR, "Failure to create rich paste factory script instance")
+			Print.plog(Print.LogLevel.ERROR,
+				"Failure to create rich paste factory script instance")
 			return
 		Print.plog(Print.LogLevel.DEFAULT, "Creating Rich Paste ContextMenuPlugin")
-		rich_paste_cm = rich_paste_factory.call(&'create_rich_paste_cm')
+		rich_paste_cm = rich_paste_factory.call(&"create_rich_paste_cm")
 		if not is_instance_valid(rich_paste_cm):
-			Print.plog(Print.LogLevel.ERROR, "Creation of Rich Paste ContextMenuPlugin Failed")
+			Print.plog(Print.LogLevel.ERROR,
+				"Creation of Rich Paste ContextMenuPlugin Failed")
 			return
 		add_context_menu_plugin(
 			EditorContextMenuPlugin.ContextMenuSlot.CONTEXT_SLOT_SCRIPT_EDITOR_CODE,
-			rich_paste_cm )
+			rich_paste_cm)
 	else:
 		if is_instance_valid(rich_paste_cm):
-			Print.plog(Print.LogLevel.DEFAULT, "Remve Rich Paste ContextMenuPlugin")
-			remove_context_menu_plugin( rich_paste_cm )
+			Print.plog(Print.LogLevel.DEFAULT, "Remove Rich Paste ContextMenuPlugin")
+			remove_context_menu_plugin(rich_paste_cm)
 			rich_paste_cm = null
 
 #endregion RichPaste
@@ -528,48 +526,15 @@ func                        __Monospaced_Font________              ()->void:pass
 ## Monospaced Font By-Line
 ##
 ## Monospaced Font Description
-func monospace_glyphs_toggle( toggled_on : bool ) -> void:
+func monospace_glyphs_toggle( toggled_on:bool ) -> void:
 	Print.ptrace()
 	var output_rtl:RichTextLabel = get_output_rtl()
-	if not is_instance_valid(output_rtl): return
+	if not is_instance_valid(output_rtl):
+		return
+	# FIXME: implementation stripped — only logs enable/disable.
+	# Prior experiment used TextServer font fixed-size for braille glyphs.
 	if toggled_on:
 		Print.plog(Print.LogLevel.DEFAULT, "Enable Monospace Font Glyphs Fixes")
-		Print.plog(Print.LogLevel.DEFAULT, "object instance ID: %X" % get_instance_id() )
-		#var font : Font = code_edit_font.base_font
-		#print( code_edit_font.get_supported_chars())
-		#print(JSON.stringify(font.get_supported_feature_list(), "  ", false) )
-		#print(JSON.stringify(font.get_supported_variation_list(), "  ", false) )
-		#print( font.has_char("⣿".to_utf32_buffer()[0]))
-		#print( font.has_char(" ".to_utf32_buffer()[0]))
-#
-		#var ts := TextServerManager.get_primary_interface()
-#
-		#for font_name in editorlog_font_names:
-			#var font_variation : FontVariation = editor_theme.get_font(font_name, "EditorFonts")
-			#var font : Font = font_variation.base_font
-#
-			#var rid : RID
-			#for r : RID in font.get_rids():
-				#if ts.font_has_char(r, 0x28FF):
-					#rid=r
-					#print(ts.font_get_name(r))
-					#break
-			#if not rid.is_valid(): return
-			#print(ts.font_get_name(rid))
-#
-			#ts.font_set_fixed_size(rid, 18)
-			#print( ts.font_get_fixed_size(rid))
-#
-			#ts.font_set_fixed_size_scale_mode(rid, TextServer.FIXED_SIZE_SCALE_ENABLED)
-
-
-			#print( ts.font_get_glyph_size(rid,Vector2i.ONE, 0x2800-0x28FF) )
-
-
-			#print( "has ⣿:", font.has_char(ord("⣿")))
-			#print( "has \u2800:", font.has_char(0x2800))
-
-
 	else:
 		Print.plog(Print.LogLevel.DEFAULT, "Disable Monospace Font Glyphs Fixes")
 
@@ -582,33 +547,43 @@ func monospace_glyphs_toggle( toggled_on : bool ) -> void:
 #                    ██  ██████  ██████  ██   ████ ███████                     #
 func                        __________ICONS__________              ()->void:pass
 
-#@export_tool_button("Dump Icons to EditorLog")
-@export_custom( PROPERTY_HINT_TOOL_BUTTON, "Dump Editor Icons",
+@export_custom(PROPERTY_HINT_TOOL_BUTTON, "Dump Editor Icons",
 	PROPERTY_USAGE_EDITOR_BASIC_SETTING
 	| PROPERTY_USAGE_GROUP)
-var icons_dump : Callable = dump_icons
+var icons_dump:Callable = dump_icons
+
 
 static func dump_icons() -> void:
 	var editor_theme:Theme = EditorInterface.get_editor_theme()
 	var output_rtl:RichTextLabel = get_output_rtl()
-	var lines : Array[String] = [
+	if not is_instance_valid(output_rtl):
+		push_error("EditorTweaks.dump_icons: no Output RichTextLabel")
+		return
+	var lines:Array[String] = [
 		"",
 		Enetheru.bbcode.h1("Icons", editor_theme.default_font_size + 2),
-		"Grouped by icon_type" ]
+		"Grouped by icon_type"]
 
-	print_rich("\n".join(lines)); lines = []
-	for icon_type : String in editor_theme.get_icon_type_list():
-		lines.append(Enetheru.bbcode.h2(icon_type, editor_theme.default_font_size + 2))
-		lines.append("var icon : Texture2D = editor_theme.get_icon( <icon_name>, \"%s\" )" % icon_type)
+	print_rich("\n".join(lines))
+	lines = []
+	for icon_type:String in editor_theme.get_icon_type_list():
+		lines.append(Enetheru.bbcode.h2(icon_type,
+			editor_theme.default_font_size + 2))
+		lines.append(
+			'var icon:Texture2D = editor_theme.get_icon(<icon_name>, "%s")'
+			% icon_type)
 		lines.append("")
-		print_rich("\n".join(lines)); lines = []
-		for icon_name : String in editor_theme.get_icon_list( icon_type ):
-			var editor_icon : Texture2D = editor_theme.get_icon( icon_name, icon_type )
-			if editor_icon.get_width() == 0: continue
-
-			output_rtl.add_image(editor_icon, 32, 32 )
+		print_rich("\n".join(lines))
+		lines = []
+		for icon_name:String in editor_theme.get_icon_list(icon_type):
+			var editor_icon:Texture2D = editor_theme.get_icon(icon_name, icon_type)
+			if editor_icon.get_width() == 0:
+				continue
+			output_rtl.add_image(editor_icon, 32, 32)
 			output_rtl.append_text(" (%d) %s %s" % [
-				editor_icon.get_reference_count(), icon_name, editor_icon.get_size()])
+				editor_icon.get_reference_count(),
+				icon_name,
+				editor_icon.get_size()])
 			print_rich("")
 
 
@@ -619,37 +594,38 @@ static func dump_icons() -> void:
 #          ██████  ██████  ███████  ██████   ██████  ██   ██ ███████           #
 func                        _________COLOURS_________              ()->void:pass
 
-# TODO dump named colours too.
+# TODO: also dump named Color constants (Color.RED, etc.).
 
-#@export_tool_button("Dump Icons to EditorLog")
-@export_custom( PROPERTY_HINT_TOOL_BUTTON, "Dump Editor Colours",
+@export_custom(PROPERTY_HINT_TOOL_BUTTON, "Dump Editor Colours",
 	PROPERTY_USAGE_EDITOR_BASIC_SETTING
 	| PROPERTY_USAGE_GROUP)
-var colours_dump : Callable = dump_colours
+var colours_dump:Callable = dump_colours
 
 
 static func dump_colours() -> void:
 	var editor_theme:Theme = EditorInterface.get_editor_theme()
-	var lines : Array[String] = [
+	var lines:Array[String] = [
 		"",
 		Enetheru.bbcode.h1("Colours", editor_theme.default_font_size + 2),
-		"Grouped by color_type" ]
+		"Grouped by color_type"]
 
-	print_rich("\n".join(lines)); lines = [""]
+	print_rich("\n".join(lines))
+	lines = [""]
 
-	for color_type : String in editor_theme.get_color_type_list():
+	for color_type:String in editor_theme.get_color_type_list():
 		lines = [
 			Enetheru.bbcode.h2(color_type, editor_theme.default_font_size + 2),
-			"var color : Color = editor_theme.get_color( <color_name>, \"%s\" )" % color_type,
-			"",]
-		for color_name : String in editor_theme.get_color_list( color_type ):
-			var editor_color : Color = editor_theme.get_color( color_name, color_type )
+			'var color:Color = editor_theme.get_color(<color_name>, "%s")'
+			% color_type,
+			""]
+		for color_name:String in editor_theme.get_color_list(color_type):
+			var editor_color:Color = editor_theme.get_color(color_name, color_type)
 			lines.append("".join([
 				"[font_size=26] ",
 				"[bgcolor=%s]" % editor_color.to_html(),
 				editor_color.to_html(),
 				"[/bgcolor]",
 				"[/font_size] ",
-				color_name
-				]))
-		print_rich("\n".join(lines)); lines = []
+				color_name]))
+		print_rich("\n".join(lines))
+		lines = []

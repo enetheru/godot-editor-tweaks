@@ -6,6 +6,7 @@
 script = ExtResource("1_k2mri")
 experimental = true
 enable_ligatures = true
+enable_clickable_url_links = true
 color_notice_critical = Color(0.77, 0.35, 0.35, 1)
 color_notice_error = Color(0.77, 0.35, 0.35, 1)
 color_notice_warning = Color(0.72, 0.61, 0.48, 1)

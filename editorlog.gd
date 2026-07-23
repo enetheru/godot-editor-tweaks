@@ -1,19 +1,26 @@
 @tool
+## Custom Output-log search bar grafted onto Godot's EditorLog UI.
+##
+## Walks the EditorLog child tree by type / accessibility names (fragile across
+## engine versions). Highlights matches by drawing over the [RichTextLabel].
+##[br][color=tomato]FIXME[/color]: Large WIP — debug overlay, incomplete
+## case/word/regex search, draw cost, and plugin toggle still stubbed.
+##[br][color=goldenrod]TODO[/color]: Re-bind Ctrl+F to search highlighted text
+## (requires unbinding the built-in filter command).
+##[br][color=goldenrod]TODO[/color]: Change the filter icon to a funnel.
 
-# TODO: re-bind CTRL-F to find the text that is highlighted
-#		or open the find dialog. Requires unbinding existing filter command
-# TODO: change the filter icon to the funnel.
-
-const Self = preload('uid://bqnxqo33qkevi')
+const Self = preload("uid://bqnxqo33qkevi")
 
 static var static_self:Self
 
+
 static func toggle_search_bar( logref:BoxContainer, toggled_on:bool ) -> void:
 	if toggled_on:
-		if is_instance_valid(static_self): return
+		if is_instance_valid(static_self):
+			return
 		print("Enable EditorLog Search Bar")
 		static_self = Self.new()
-		static_self.find_buildtin_editorlog_controls( logref )
+		static_self.find_builtin_editorlog_controls(logref)
 		static_self.enable_search()
 	else:
 		if is_instance_valid(static_self):
@@ -74,7 +81,7 @@ var search_toggle_b:Button
 var right_sep3:HSeparator
 
 var search_hbox:HBoxContainer
-# I want to replicate what clion has, and skip for now the innecessary.
+# Aim for CLion-like chrome; skip non-essentials for now:
 # [> for show replace]
 # [history | line_edit | insert special | match case | match word | enable regex]
 # [num results | up arrow | down arrow | filter | options...]
@@ -87,8 +94,7 @@ var pattern_regex_b:Button
 var match_count_lbl:Label
 var match_prev_b:Button
 var match_next_b:Button
-#var search_filter_b:Button # for selection only searching
-#var search_options_b:Button
+# TODO: search_filter_b (selection-only); search_options_b
 var search_hide_b:Button
 
 var debounce_timer:Timer
@@ -129,8 +135,8 @@ var search_pattern:String
 ## paragraph_num:[Vector2i pairs of absolute character start and end indexes]
 var match_results:Dictionary
 
-## The matching paragraph index's, as a view into match_results.
-var match_indices :Array[int]
+## Matching paragraph indices — view into [member match_results].
+var match_indices:Array[int]
 
 var current_match_idx:int = 1
 var at_first_match:bool = false
@@ -139,11 +145,11 @@ var at_last_match:bool = false
 var debounce_delay:float = 0.7
 
 ## Cache
-var _rtl_content_margin := Vector2(8,8) # TODO fetch this from the theme
+var _rtl_content_margin := Vector2(8, 8) # TODO: fetch from theme
 var _rtl_font:Font
 var _rtl_font_size:int = 16
 
-## TODO delete the debug stuff.
+# FIXME: gate debug drawing behind opts.debug; remove once search is solid.
 var _debug:bool = true
 var debug_info:Dictionary
 var matching_paragraphs:Dictionary
@@ -219,60 +225,71 @@ func _on_pattern_changed( new_pattern:String ) -> void:
 
 
 func _on_pattern_history_pressed() -> void:
+	# TODO: popup pattern history menu
 	trace()
 
 
 func _on_pattern_insert_pressed() -> void:
+	# TODO: insert special / regex snippets into the pattern field
 	trace()
 
 
 func _on_pattern_case_pressed() -> void:
+	# TODO: re-run search with case sensitivity from pattern_case_b
 	trace()
 
 
 func _on_pattern_word_pressed() -> void:
+	# TODO: whole-word matching
 	trace()
 
 
 func _on_pattern_regex_pressed() -> void:
+	# TODO: regex search path; inspect_object is debug-only
 	trace()
 	EditorInterface.inspect_object(_rtl)
 
 
 func _on_match_prev_pressed() -> void:
-	if await cache_is_updated(): do_search()
-	if match_indices .is_empty(): return
+	if await cache_is_updated():
+		do_search()
+	if match_indices.is_empty():
+		return
 	if current_match_idx > 1:
 		current_match_idx -= 1
 	else:
 		if at_first_match:
-			current_match_idx = match_indices .size()
+			current_match_idx = match_indices.size()
 			at_first_match = false
 		else:
+			# TODO: toast / status when already at first match
 			trace_lvl(EneLog.LogLevel.NOTICE, "# TODO: pop for being at the top")
 			at_first_match = true
 			return
 
-	var p_num:int = match_indices [current_match_idx-1]
+	var p_num:int = match_indices[current_match_idx - 1]
 	_rtl.scroll_to_line(p_num)
 	update_search_ui()
 
 
 func _on_match_next_pressed() -> void:
-	if await cache_is_updated(): do_search()
-	if match_indices .is_empty(): return
-	if current_match_idx < match_indices .size():
+	if await cache_is_updated():
+		do_search()
+	if match_indices.is_empty():
+		return
+	if current_match_idx < match_indices.size():
 		current_match_idx += 1
 	else:
 		if at_last_match:
 			current_match_idx = 1
 			at_last_match = false
 		else:
+			# TODO: toast / status when already at last match
 			trace_lvl(EneLog.LogLevel.NOTICE, "# TODO: pop for being at the bottom")
 			at_last_match = true
 			return
 
-	var p_num:int = match_indices [current_match_idx-1]
+	var p_num:int = match_indices[current_match_idx - 1]
 	_rtl.scroll_to_line(p_num)
 	update_search_ui()
 
@@ -284,7 +301,9 @@ func _on_match_next_pressed() -> void:
 #         ██      ██ ███████    ██    ██   ██  ██████  ██████  ███████         #
 func                        _________METHODS_________              ()->void:pass
 
-func find_buildtin_editorlog_controls( logref:BoxContainer ) -> void:
+## Resolve EditorLog child controls by layout order and accessibility names.
+##[br]FIXME: brittle against Godot UI rearrangements; version-gate or soft-fail.
+func find_builtin_editorlog_controls( logref:BoxContainer ) -> void:
 	trace()
 	# Main Control and children
 	_editorlog = logref
@@ -417,16 +436,16 @@ func do_search() -> void:
 	}
 
 	clear_matches()
-	# TODO change the search function depending on the options.
-	match_results = _rtl_p_cache.reduce( basic_search.bind(search_info), {} )
+	# TODO: pick search fn from case / word / regex toggles.
+	match_results = _rtl_p_cache.reduce(basic_search.bind(search_info), {})
 
 	trace_lvl(EneLog.LogLevel.INFO, "line_cache.size: %s" % [_rtl_p_cache.size()])
 	if not _rtl_p_cache.is_empty():
 		trace_lvl(EneLog.LogLevel.INFO, "first line: %s" % _rtl_p_cache[0])
 	if not match_results.is_empty():
-		match_indices .assign( match_results.keys() )
-		if current_match_idx > match_indices .size():
-			current_match_idx = match_indices .size()
+		match_indices.assign(match_results.keys())
+		if current_match_idx > match_indices.size():
+			current_match_idx = match_indices.size()
 
 	update_search_ui()
 
@@ -454,14 +473,16 @@ func cache_is_updated() -> bool:
 
 
 func update_search_ui() -> void:
-	if match_indices .is_empty(): match_count_lbl.text = "0 results"
-	else: match_count_lbl.text = "%d/%d" % [current_match_idx, match_indices .size()]
+	if match_indices.is_empty():
+		match_count_lbl.text = "0 results"
+	else:
+		match_count_lbl.text = "%d/%d" % [current_match_idx, match_indices.size()]
 	_rtl.queue_redraw()
 
 
 func clear_matches() -> void:
 	match_results.clear()
-	match_indices .clear()
+	match_indices.clear()
 	matching_paragraphs.clear()
 	at_first_match = false
 	at_last_match = false
@@ -531,7 +552,7 @@ func find_smallest(
 #                    ██ ██      ██   ██ ██   ██ ██      ██   ██                #
 #               ███████ ███████ ██   ██ ██   ██  ██████ ██   ██                #
 func                        __________SEARCH_________              ()->void:pass
-# TODO put the search into a worker for threadpooling.
+# TODO: run search on WorkerThreadPool for large logs.
 
 func basic_search(
 			results:Dictionary,
@@ -539,15 +560,17 @@ func basic_search(
 			search_info:Dictionary ) -> Dictionary:
 	var pattern:String = search_info.pattern
 	if pattern in paragraph:
-		# TODO capture the location of the word within the paragraph
-		# TODO implement word, case, regex features
-		var result_array := Array()
+		# TODO: honour case / whole-word / regex option buttons
+		var result_array:Array = []
 		var from:int = 0
 		while from < paragraph.length():
+			# NOTE: findn is always case-insensitive; case toggle is ignored.
 			var match_start:int = paragraph.findn(pattern, from)
-			if match_start < 0: break
-			result_array.append(Vector2i(match_start, match_start + pattern.length()))
-			from += match_start + pattern.length() + 1
+			if match_start < 0:
+				break
+			result_array.append(Vector2i(
+				match_start, match_start + pattern.length()))
+			from = match_start + pattern.length()
 
 		results[search_info.p_num] = result_array
 	search_info.p_num += 1
@@ -695,7 +718,7 @@ func create_search_control() -> void:
 #                      ██   ██ ██   ██ ██   ██ ██ ███ ██                       #
 #                      ██████  ██   ██ ██   ██  ███ ███                        #
 func                        __________DRAW___________              ()->void:pass
-#TODO I need to pre-calculate the rects because doing it on the fly is super slow.
+# FIXME: pre-calculate highlight rects; per-draw font metrics are too slow.
 
 func draw_highlight_word(
 			word_range:Vector2i,
@@ -772,9 +795,9 @@ func draw_search() -> void:
 		draw_highlight_paragraph( hl_idx, current_paragraph_color, false )
 
 	# Draw the rest of the matches.
-	for p_num:int in match_indices :
+	for p_num:int in match_indices:
 		if p_num > _rtl_visible_p_range.x and p_num < _rtl_visible_p_range.y:
-			draw_highlight_paragraph( p_num, paragraph_color, true )
+			draw_highlight_paragraph(p_num, paragraph_color, true)
 
 
 #                           ██████  ████████ ██                                #

@@ -1,10 +1,16 @@
 @tool
 extends EditorScript
+## Manual EditorScript scratch for Output-log features.
+##
+##[br][color=goldenrod]TODO[/color]: Point paths at [code]enetheru.editor-tweaks[/code]
+## (still references legacy [code]enhancements[/code] plugin name in places).
+##[br][color=goldenrod]TODO[/color]: Prefer [EditorIntegration] for log lookup.
+##[br][color=goldenrod]TODO[/color]: Move out of the shipped addon or gate
+## behind [member TweakOptions.debug].
 
-#const Settings = preload('res://addons/enhancements/settings.gd')
 
 func _run() -> void:
-	var output : RichTextLabel = get_output_label()
+	var output:RichTextLabel = get_output_label()
 	if not output:
 		print("Unable to find output label")
 		return

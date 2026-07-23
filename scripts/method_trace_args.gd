@@ -14,10 +14,7 @@
 
 
 static func create_method_trace_args_cm() -> EditorContextMenuPlugin:
-
-	#TODO var command_palette = EditorInterface.get_command_palette()
-	#command_palette.add_command("command", "test/command", func()->void:pass)
-
+	# TODO: also register on EditorInterface.get_command_palette()
 	return MethodTraceArgsMenu.new()
 
 
@@ -111,19 +108,23 @@ class MethodTraceArgsMenu extends EditorContextMenuPlugin:
 		var sig_line:String = code_edit.get_line(func_start)
 		var base_indent:String = ""
 		for c in sig_line:
-			if c == '\t' or c == ' ': base_indent += c
-			else: break
+			if c == "\t" or c == " ":
+				base_indent += c
+			else:
+				break
 		var body_indent:String = base_indent + "\t"
 
 		var trace_line:String
-		var core:String = "Core." if is_static else ''
+		# FIXME: "Core." prefix is project-specific; make configurable.
+		var core:String = "Core." if is_static else ""
 		if arg_names.is_empty():
 			trace_line = "%s%strace()" % [body_indent, core]
 		else:
-			var pairs:PackedStringArray = []
-			for name in arg_names:
-				pairs.append("&'%s': %s" % [name, name])
-			trace_line = "%s%strace({%s})" % [body_indent, core, ", ".join(pairs)]
+			var pair_list:Array = []
+			for arg_name:String in arg_names:
+				pair_list.append("&'%s': %s" % [arg_name, arg_name])
+			trace_line = "%s%strace({%s})" % [
+				body_indent, core, ", ".join(pair_list)]
 
 		# Insert immediately after the signature end line.
 		var insert_at:int = sig_end + 1
@@ -134,41 +135,61 @@ class MethodTraceArgsMenu extends EditorContextMenuPlugin:
 			var existing:String = code_edit.get_line(insert_at)
 			code_edit.set_line(insert_at, trace_line + "\n" + existing)
 
-	## Parse a raw arg list source like `a:int, b:=1, c, d:String = "x,y"` -> ["a","b","c","d"].
+	## Parse a raw arg list source like `a:int, b:=1, c, d:String = "x,y"`
+	## into name strings.
 	static func _parse_arg_names( src:String ) -> PackedStringArray:
-		var out:PackedStringArray = []
+		var names:Array[String] = []
 		var depth:int = 0
 		var buf:String = ""
 		var in_str:int = 0 # 0=no, 1=single, 2=double
-		for c in src:
+		for c:String in src:
 			if in_str == 1:
 				buf += c
-				if c == "'": in_str = 0
+				if c == "'":
+					in_str = 0
 				continue
 			if in_str == 2:
 				buf += c
-				if c == '"': in_str = 0
+				if c == '"':
+					in_str = 0
 				continue
-			if c == "'": in_str = 1; buf += c; continue
-			if c == '"': in_str = 2; buf += c; continue
-			if c == '(' or c == '[' or c == '{': depth += 1; buf += c; continue
-			if c == ')' or c == ']' or c == '}': depth -= 1; buf += c; continue
-			if c == ',' and depth == 0:
-				_append_name(out, buf)
+			if c == "'":
+				in_str = 1
+				buf += c
+				continue
+			if c == '"':
+				in_str = 2
+				buf += c
+				continue
+			if c in ["(", "[", "{"]:
+				depth += 1
+				buf += c
+				continue
+			if c in [")", "]", "}"]:
+				depth -= 1
+				buf += c
+				continue
+			if c == "," and depth == 0:
+				_append_name(names, buf)
 				buf = ""
 				continue
 			buf += c
-		_append_name(out, buf)
-		return out
+		_append_name(names, buf)
+		return PackedStringArray(names)
 
-	static func _append_name( out:PackedStringArray, raw:String ) -> void:
+
+	static func _append_name( names:Array[String], raw:String ) -> void:
 		var s:String = raw.strip_edges()
-		if s.is_empty(): return
+		if s.is_empty():
+			return
 		# Strip default value.
 		var eq:int = s.find("=")
-		if eq != -1: s = s.substr(0, eq).strip_edges()
+		if eq != -1:
+			s = s.substr(0, eq).strip_edges()
 		# Strip type annotation.
 		var colon:int = s.find(":")
-		if colon != -1: s = s.substr(0, colon).strip_edges()
-		if s.is_empty(): return
-		out.append(s)
+		if colon != -1:
+			s = s.substr(0, colon).strip_edges()
+		if s.is_empty():
+			return
+		names.append(s)

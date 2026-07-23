@@ -1,7 +1,17 @@
 @tool
 extends Resource
 class_name TweakOptions
+## Shared option resource for editor-tweaks (ProjectSettings + runtime).
+##
+##[br][color=tomato]FIXME[/color]: [enum LogLevel] is sequential (0..6) while
+## [member verbosity] is [code]@export_flags[/code] (bit values). [EneLog]
+## uses yet another bitmask scheme. Colour lookup via [method get_colour]
+## only matches sequential keys — flag verbosity will often miss.
+##[br][color=goldenrod]TODO[/color]: Align exports with the single logger API
+## once print_helper / EneLog are merged.
 
+
+# FIXME: sequential; does not match @export_flags values on verbosity.
 enum LogLevel {
 	SILENT = 0,
 	CRITICAL = 1,
@@ -20,7 +30,10 @@ var debug:bool = false
 ## Turn on and off experimental and development features.
 var experimental:bool = false
 
-@export_flags( "CRITICAL:1","ERROR:2","WARNING:4","DEFAULT:8","NOTICE:16","DEBUG:32","TRACE:64")
+# NOTE: flag values ≠ LogLevel enum ordinals above (see class FIXME).
+@export_flags(
+	"CRITICAL:1", "ERROR:2", "WARNING:4", "DEFAULT:8",
+	"NOTICE:16", "DEBUG:32", "TRACE:64")
 var verbosity:int = 0
 
 
@@ -97,7 +110,7 @@ func                        __Code_Editor____________              ()->void:pass
 @export_category("CodeEditor")
 
 @export
-var use_monospace_glyphs : bool = false
+var use_monospace_glyphs:bool = false
 
 @export
 var add_rich_paste:bool = false
@@ -106,10 +119,10 @@ var add_rich_paste:bool = false
 var enable_linespacing_tweaks:bool = false
 
 @export
-var adjust_linespacing_above : int = 0
+var adjust_linespacing_above:int = 0
 
 @export
-var adjust_linespacing_below : int = 0
+var adjust_linespacing_below:int = 0
 
 ## Add a function to the code editor to add a call to trace with all the function arguments in a dictionary.
 @export

@@ -88,6 +88,7 @@
 ## very brute force.
 ## https://github.com/PiCode9560/Godot-Editor-Settings-Description/blob/main/editor_settings_description.gd
 
+# FIXME: uses print_helper (sequential LogLevel), not autoload EneLog.
 const Print = preload("uid://hetq57iwhpjm")
 const LogLevel = Print.LogLevel
 
@@ -118,8 +119,9 @@ signal settings_changed( setting_name:StringName, value:Variant )
 #             ███████   ████   ███████ ██   ████    ██    ███████              #
 func                        __________EVENTS_________              ()->void:pass
 
-func _on_editor_settings_changed() -> void:
-	Print.plog( LogLevel.TRACE, "_on_editor_settings_changed")
+# NOTE: name is historical; the signal is ProjectSettings.settings_changed.
+func _on_project_settings_changed() -> void:
+	Print.plog(LogLevel.TRACE, "_on_project_settings_changed")
 	update_target.call_deferred()
 
 
@@ -140,9 +142,9 @@ func _init( target:Object, prefix:String = "plugin/un-named" )-> void:
 	add_target_properties()
 
 	# when plugins are disabled, they are deleted.
-	@warning_ignore_start('return_value_discarded')
-	ProjectSettings.settings_changed.connect( _on_editor_settings_changed )
-	@warning_ignore_restore('return_value_discarded')
+	@warning_ignore_start("return_value_discarded")
+	ProjectSettings.settings_changed.connect(_on_project_settings_changed)
+	@warning_ignore_restore("return_value_discarded")
 
 
 #         ███    ███ ███████ ████████ ██   ██  ██████  ██████  ███████         #
@@ -350,7 +352,8 @@ static func get_all_plugins_info( only_loaded:bool = false) -> Array[Dictionary]
 	# Get list of subdirectories (plugin folders)
 	var err:Error = dir.list_dir_begin()
 	if err != OK:
-		push_warning("%S.list_dir_begin() (Error: %s)" % [dir, error_string(err)])
+		push_warning("SettingsHelper.get_all_plugins_info: list_dir_begin failed (%s)"
+			% error_string(err))
 		return plugins_info
 
 	var folder_name: String = dir.get_next()

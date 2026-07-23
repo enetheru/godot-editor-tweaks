@@ -6,12 +6,23 @@ extends Node
 ## │ | '_ \ '_| | ' \  _| || |  [br]
 ## │ | .__/_| |_|_||_\__|\_, |  [br]
 ## ╰─|_|─────────────────|__/-<<[br]
-## Logging utility for pretty printing to output console
+## Logging utility for pretty printing to the output console.
 ##
-## [color=goldenrod]TODO[/color]: Investigate using  WorkerThreadPool.get_caller_task_id() to[br]
-## [b]      identify whether we are in a thread and what its ID is.[br]
-## [color=goldenrod]TODO[/color]: Consider using hint bbcode to add more detail[br]
-## [b]      eg.[hint="{tooltip text displayed on hover}"]{text}[/hint][br]
+## Autoload name is [code]EneLog[/code] ([code]project.godot[/code]); class_name
+## is [code]_EneLog[/code] so the autoload can own the global identifier.
+##[br][color=tomato]FIXME[/color]: Also lives as a dual of
+## [code]print_helper.gd[/code] (sequential levels) and is registered via
+## [code]Engine.register_singleton[/code] from the editor plugin — three entry
+## points for one concern. Pick one API surface.
+##[br][color=tomato]FIXME[/color]: [enum LogLevel] bitmasks vs sequential enums
+## in [TweakOptions] / print_helper; [member _default_level] comparisons use
+## integer [code]<[/code] which does not match flag-style verbosity.
+##[br][color=goldenrod]TODO[/color]: [code]OS.delay_msec(4)[/code] in
+## [method printy] is a blunt editor throttle — replace with rate limiting.
+##[br][color=goldenrod]TODO[/color]: WorkerThreadPool.get_caller_task_id() for
+## thread identity.
+##[br][color=goldenrod]TODO[/color]: BBCode [code][hint][/code] tooltips on
+## dense log fields.
 
 func                        __Definitions____________              ()->void:pass
 const TWEAK_OPTS = preload("uid://dhpivfj5v8omf")
@@ -291,14 +302,18 @@ func trace(args: Dictionary = {}, stack: Array = [], object: Object = null) -> v
 
 
 func printy(
-			content: Variant,
-			args_in: Variant = null,
-			object: Object = null,
-			indent: String = "",
-			custom_stack: Array[Dictionary] = [] ) -> void:
-	if disabled: return
-	if OS.get_thread_caller_id() in thread_filter:return
-	OS.delay_msec(4) # let the editor catch up.
+			content:Variant,
+			args_in:Variant = null,
+			object:Object = null,
+			indent:String = "",
+			custom_stack:Array[Dictionary] = [] ) -> void:
+	if disabled:
+		return
+	if OS.get_thread_caller_id() in thread_filter:
+		return
+	# FIXME: hard sleep on every log line — starves threads and slows the
+	# editor under TRACE. Prefer coalesce / frame budget instead.
+	OS.delay_msec(4)
 
 	last_time = get_time.call()
 	last_frame = Engine.get_process_frames()
@@ -398,9 +413,9 @@ func get_level() -> int:
 	levels_mutex.lock()
 	for prefix:String in _levels:
 		if path.begins_with(prefix):
-			var lvl:int = _levels[prefix]
+			var path_lvl:int = _levels[prefix]
 			levels_mutex.unlock()
-			return lvl
+			return path_lvl
 	levels_mutex.unlock()
 	return _default_level
 
@@ -506,13 +521,13 @@ func                        __________STRING_________              ()->void:pass
 func get_empty_string() -> String: return ""
 
 
-func get_script_name(script: Script) -> String:
-	var name:String = script.get_global_name()
-	if name.is_empty() and script.get_base_script():
-		name = script.get_base_script().get_global_name()
-	if name.is_empty():
-		name = script.resource_path.get_file().get_basename()
-	return name
+func get_script_name( script:Script ) -> String:
+	var script_name:String = script.get_global_name()
+	if script_name.is_empty() and script.get_base_script():
+		script_name = script.get_base_script().get_global_name()
+	if script_name.is_empty():
+		script_name = script.resource_path.get_file().get_basename()
+	return script_name
 
 
 ## Returns a BBCode URL link string.
@@ -635,9 +650,9 @@ func format_key_value(key:Variant, value:Variant) -> String:
 
 	if value is Object:
 		var o:Object = value
-		var name:Variant = o.get(&'name')
-		if name != null:
-			return str(key) + "=" + value.name
+		var obj_name:Variant = o.get(&"name")
+		if obj_name != null:
+			return str(key) + "=" + str(obj_name)
 		return str(key) + "=" + o.get_class()
 	return str(key) + "=" + str(value)
 
