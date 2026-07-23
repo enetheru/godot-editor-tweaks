@@ -3,8 +3,9 @@
 ##
 ## Walks the EditorLog child tree by type / accessibility names (fragile across
 ## engine versions). Highlights matches by drawing over the [RichTextLabel].
-##[br][color=tomato]FIXME[/color]: Large WIP — debug overlay, incomplete
-## case/word/regex search, draw cost, and plugin toggle still stubbed.
+##[br][color=tomato]FIXME[/color]: Large WIP — incomplete case/word/regex
+## search and draw cost. Debug overlay gated by [member TweakOptions.debug]
+## on the options resource (not raw ProjectSettings).
 ##[br][color=goldenrod]TODO[/color]: Re-bind Ctrl+F to search highlighted text
 ## (requires unbinding the built-in filter command).
 ##[br][color=goldenrod]TODO[/color]: Change the filter icon to a funnel.
@@ -14,12 +15,18 @@ const Self = preload("uid://bqnxqo33qkevi")
 static var static_self:Self
 
 
-static func toggle_search_bar( logref:BoxContainer, toggled_on:bool ) -> void:
+## [param opts] is the plugin's [TweakOptions] resource (settings helper target).
+static func toggle_search_bar(
+			logref:BoxContainer,
+			toggled_on:bool,
+			opts:TweakOptions = null ) -> void:
 	if toggled_on:
 		if is_instance_valid(static_self):
+			static_self._opts = opts
 			return
 		print("Enable EditorLog Search Bar")
 		static_self = Self.new()
+		static_self._opts = opts
 		static_self.find_builtin_editorlog_controls(logref)
 		static_self.enable_search()
 	else:
@@ -144,13 +151,14 @@ var at_last_match:bool = false
 
 var debounce_delay:float = 0.7
 
-## Cache
-var _rtl_content_margin := Vector2(8, 8) # TODO: fetch from theme
+## Cache — content margin refreshed from the RTL theme when controls resolve.
+var _rtl_content_margin:Vector2 = Vector2(8, 8)
 var _rtl_font:Font
 var _rtl_font_size:int = 16
 
-# FIXME: gate debug drawing behind opts.debug; remove once search is solid.
-var _debug:bool = true
+## Options resource owned by the plugin / settings helper (not ProjectSettings).
+var _opts:TweakOptions
+
 var debug_info:Dictionary
 var matching_paragraphs:Dictionary
 var _debug_font:FontVariation
@@ -196,8 +204,8 @@ func _on_editorlog_rtl_draw() -> void:
 
 	_rtl_visible_content_rect = _rtl.get_visible_content_rect()
 	draw_search()
-	if pattern_regex_b.button_pressed:
-		if _debug: draw_debug()
+	if pattern_regex_b.button_pressed and _is_debug_draw_enabled():
+		draw_debug()
 
 
 func _on_search_toggled( toggled_on:bool ) -> void:
@@ -390,11 +398,24 @@ func find_builtin_editorlog_controls( logref:BoxContainer ) -> void:
 
 	_rtl_font = _rtl.get_theme_default_font()
 	_rtl_font_size = _rtl.get_theme_default_font_size()
-
+	_rtl_content_margin = _content_margin_from_theme(_rtl)
 
 	_debug_font = FontVariation.new()
 	_debug_font_size = _rtl_font_size
 	_debug_font.base_font = _rtl_font
+
+
+## True when search debug overlays may draw ([member TweakOptions.debug]).
+func _is_debug_draw_enabled() -> bool:
+	return _opts != null and _opts.debug
+
+
+## Content margin from the control's [code]normal[/code] StyleBox, if any.
+static func _content_margin_from_theme( control:Control ) -> Vector2:
+	var sb:StyleBox = control.get_theme_stylebox(&"normal")
+	if sb == null:
+		return Vector2(8, 8)
+	return Vector2(sb.get_margin(SIDE_LEFT), sb.get_margin(SIDE_TOP))
 
 
 func enable_search() -> void:

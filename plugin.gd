@@ -9,12 +9,14 @@ extends EditorPlugin
 ## ([code]EneLog.gd[/code]) vs static [code]print_helper.gd[/code]; unify levels.
 ##[br][color=goldenrod]TODO[/color]: Dependency check before load (lazy plugin
 ## bootstrap, vim-lazy style).
-##[br][color=goldenrod]TODO[/color]: Several toggles are stubs (search bar,
-## rotate BBCode, clickable URLs, monospace glyphs) — re-enable or remove.
+##[br][color=goldenrod]TODO[/color]: monospace glyphs still stubbed.
 
 const Self = preload("uid://setvleg6sni3")
 
 const EditorIntegration = preload("uid://cl0kj8qvnhfam")
+
+## Output-log search bar (no class_name — call statics on the script).
+const EditorLogSearch = preload("uid://bqnxqo33qkevi")
 
 const SettingsHalpr = preload("uid://o5djwaewipdy")
 var settings_hlp:SettingsHalpr
@@ -86,30 +88,36 @@ func _on_editorlog_link_clicked( meta:Variant ) -> void:
 
 
 # TODO: include setting path so a bad write can be reverted.
-# FIXME: non-bool settings leave [code]b[/code] default-false — only safe for
-# bool toggles; cast explicitly per key or branch on typeof.
 func _on_project_settings_changed(
 			setting_name:String, setting_value:Variant ) -> void:
 	Print.plog(Print.LogLevel.TRACE, "".join([setting_name, ":", setting_value]))
-	var b:bool = false
-	if typeof(setting_value) == TYPE_BOOL:
-		b = setting_value
 	match setting_name:
-		"experimental" when setting_value == true: enable_experimental_features()
-		"experimental": disable_experimental_features()
-		"verbosity": Print._default_level = setting_value
-		"enable_ligatures": editorlog_ligatures_toggle(b)
-		"add_rotate_bbcode_effect": editorlog_rotate_toggle(b)
-		"enable_output_search_bar": editorlog_search_toggle(b)
-		"enable_clickable_url_links": editorlog_url_links_set(b)
-		"use_monospace_glyphs": monospace_glyphs_toggle(b)
-		"add_rich_paste": editorlog_rich_paste_toggle(b)
-		"enable_linespacing_tweaks": linespacing_toggle(b)
+		"experimental" when setting_value == true:
+			enable_experimental_features()
+		"experimental":
+			disable_experimental_features()
+		"verbosity":
+			Print._default_level = setting_value
+		"enable_ligatures" when setting_value is bool:
+			editorlog_ligatures_toggle(setting_value)
+		"add_rotate_bbcode_effect" when setting_value is bool:
+			editorlog_rotate_toggle(setting_value)
+		"enable_output_search_bar" when setting_value is bool:
+			editorlog_search_toggle(setting_value)
+		"enable_clickable_url_links" when setting_value is bool:
+			editorlog_url_links_set(setting_value)
+		"use_monospace_glyphs" when setting_value is bool:
+			monospace_glyphs_toggle(setting_value)
+		"add_rich_paste" when setting_value is bool:
+			editorlog_rich_paste_toggle(setting_value)
+		"enable_linespacing_tweaks" when setting_value is bool:
+			linespacing_toggle(setting_value)
 		"adjust_linespacing_above" when opts.enable_linespacing_tweaks:
 			linespacing_toggle(opts.enable_linespacing_tweaks)
 		"adjust_linespacing_below" when opts.enable_linespacing_tweaks:
 			linespacing_toggle(opts.enable_linespacing_tweaks)
-		"make_method_trace_line": make_method_trace_line_toggle(b)
+		"make_method_trace_line" when setting_value is bool:
+			make_method_trace_line_toggle(setting_value)
 
 
 #      ██████  ██    ██ ███████ ██████  ██████  ██ ██████  ███████ ███████     #
@@ -383,12 +391,27 @@ func                        __BBCode_Rotate__________              ()->void:pass
 ## BBCode Rotate By-Line
 ##
 ## BBCode Rotate Description
-# var sideways_effect : RichTextEffect = preload('sideways_effect.tres')
+var sideways_effect:RichTextEffect = preload("sideways_effect.tres")
 
-func editorlog_rotate_toggle( _toggled_on:bool ) -> void:
+
+func editorlog_rotate_toggle( toggled_on:bool ) -> void:
 	Print.ptrace()
-	# FIXME: body commented out — sideways_effect never installed.
-	# Needs get_output_rtl() + preload('sideways_effect.tres').
+	var output_rtl:RichTextLabel = get_output_rtl()
+	if not is_instance_valid(output_rtl):
+		Print.plog(Print.LogLevel.ERROR,
+			"editorlog_rotate_toggle: Output RichTextLabel not found")
+		return
+	if not is_instance_valid(sideways_effect):
+		Print.plog(Print.LogLevel.ERROR,
+			"editorlog_rotate_toggle: sideways_effect missing")
+		return
+	if toggled_on:
+		Print.plog(Print.LogLevel.DEFAULT, "Enable EditorLog Sideways Text Effect")
+		output_rtl.install_effect(sideways_effect)
+	else:
+		Print.plog(Print.LogLevel.DEFAULT, "Disable EditorLog Sideways Text Effect")
+		if sideways_effect in output_rtl.custom_effects:
+			output_rtl.custom_effects.erase(sideways_effect)
 #endregion BBCode Rotate
 
 
@@ -403,12 +426,19 @@ func                        __Search_Bar_____________              ()->void:pass
 ## Search Bar By-Line
 ##
 ## Search Bar Description
-func editorlog_search_toggle( _toggled_on:bool ) -> void:
+func editorlog_search_toggle( toggled_on:bool ) -> void:
 	Print.ptrace()
-	# FIXME: re-enable via editorlog.gd once EditorLog discovery is stable:
-	# var logref:BoxContainer = get_editorlog() as BoxContainer
-	# if is_instance_valid(logref):
-	# 	EditorLog.toggle_search_bar(logref, _toggled_on)
+	var logref:Control = get_editorlog()
+	if not is_instance_valid(logref):
+		Print.plog(Print.LogLevel.ERROR,
+			"editorlog_search_toggle: EditorLog not found")
+		return
+	if not logref is BoxContainer:
+		Print.plog(Print.LogLevel.ERROR,
+			"editorlog_search_toggle: EditorLog is %s, need BoxContainer"
+			% logref.get_class())
+		return
+	EditorLogSearch.toggle_search_bar(logref as BoxContainer, toggled_on, opts)
 
 #endregion Search Bar
 
@@ -427,15 +457,21 @@ func                        __Clickable_Links________              ()->void:pass
 # TODO: Registry for URL handlers configurable from settings.
 var output_rtl_og_conn:Array
 
-func editorlog_url_links_set( _toggle_on:bool ) -> void:
+func editorlog_url_links_set( toggle_on:bool ) -> void:
 	Print.ptrace()
-	# FIXME: body disabled — call editorlog_url_links_enabled/disabled.
+	if toggle_on:
+		editorlog_url_links_enabled()
+	else:
+		editorlog_url_links_disabled()
 
 
 func editorlog_url_links_enabled() -> void:
 	Print.ptrace()
 	var output_rtl:RichTextLabel = get_output_rtl()
-	if not is_instance_valid( output_rtl ): return
+	if not is_instance_valid(output_rtl):
+		Print.plog(Print.LogLevel.ERROR,
+			"editorlog_url_links_enabled: Output RichTextLabel not found")
+		return
 
 	# output_rtl.autowrap_mode = TextServer.AUTOWRAP_OFF
 	# output_rtl.autowrap_trim_flags = TextServer.BREAK_NONE
