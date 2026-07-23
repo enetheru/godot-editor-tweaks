@@ -11,6 +11,14 @@
 ## that inserts a `trace(...)` line just after the `func` definition on the
 ## current line. If the function has arguments, they are added in a Dictionary
 ## of the form `trace({&'arg_name': arg_name, ...})`.
+##
+## For [code]static func[/code], prefixes with [constant STATIC_TRACE_OWNER]
+## (default [code]EneLog[/code] → [code]EneLog.trace(...)[/code]). Set to
+## empty to emit a bare [code]trace(...)[/code].
+
+
+## Owner for static-method inserts. Empty string = no prefix.
+const STATIC_TRACE_OWNER:String = "EneLog"
 
 
 static func create_method_trace_args_cm() -> EditorContextMenuPlugin:
@@ -115,16 +123,17 @@ class MethodTraceArgsMenu extends EditorContextMenuPlugin:
 		var body_indent:String = base_indent + "\t"
 
 		var trace_line:String
-		# FIXME: "Core." prefix is project-specific; make configurable.
-		var core:String = "Core." if is_static else ""
+		var owner_prefix:String = ""
+		if is_static and not STATIC_TRACE_OWNER.is_empty():
+			owner_prefix = STATIC_TRACE_OWNER + "."
 		if arg_names.is_empty():
-			trace_line = "%s%strace()" % [body_indent, core]
+			trace_line = "%s%strace()" % [body_indent, owner_prefix]
 		else:
 			var pair_list:Array = []
 			for arg_name:String in arg_names:
 				pair_list.append("&'%s': %s" % [arg_name, arg_name])
 			trace_line = "%s%strace({%s})" % [
-				body_indent, core, ", ".join(pair_list)]
+				body_indent, owner_prefix, ", ".join(pair_list)]
 
 		# Insert immediately after the signature end line.
 		var insert_at:int = sig_end + 1

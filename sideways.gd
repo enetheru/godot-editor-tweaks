@@ -2,8 +2,7 @@
 extends RichTextEffect
 ## BBCode [code][sideways][/code] glyph rotation for the Output log.
 ##
-##[br][color=goldenrod]TODO[/color]: Plugin install path is still stubbed
-## ([code]editorlog_rotate_toggle[/code]).
+## Installed via [code]editorlog_rotate_toggle[/code] / [code]sideways_effect.tres[/code].
 ##[br][color=goldenrod]NOTE[/color]: True x-height needs a custom engine build;
 ## we approximate with ascent * 0.56.
 
