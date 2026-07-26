@@ -123,16 +123,17 @@ class LogCtx:
 
 
 ## RAII guard
-class StackPathLogScope:
-	extends RefCounted
+class StackPathLogScope extends RefCounted:
+	var owner:_EneLog
 	var _path: String
 
-	func _init(path: String) -> void:
+	func _init(new_owner:_EneLog, path: String) -> void:
+		owner = new_owner
 		_path = path
 
 	func _notification(what: int) -> void:
 		if what == NOTIFICATION_PREDELETE:
-			EneLog._pop(_path)
+			owner._pop(_path)
 
 
 # ██████  ██████   ██████  ██████  ███████ ██████  ████████ ██ ███████ ███████ #
@@ -443,7 +444,7 @@ func push_level(new_level: int) -> StackPathLogScope:
 	levels_mutex.lock()
 	_levels[path] = new_level
 	levels_mutex.unlock()
-	return StackPathLogScope.new(path)
+	return StackPathLogScope.new(self, path)
 
 
 func _pop(path: String) -> void:

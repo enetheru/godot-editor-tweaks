@@ -58,3 +58,11 @@ static func get_editorlog_4_6() -> Control:
 	push_error("EditorIntegration.get_editorlog_4_6:",
 		" Unable to find EditorLog")
 	return null
+
+
+static func get_code_font() -> FontVariation:
+	var editor_theme:Theme = EditorInterface.get_editor_theme()
+	var code_edit_font:FontVariation = editor_theme.get_font("font", "CodeEdit")
+	if is_instance_valid(code_edit_font):
+		return code_edit_font
+	return null

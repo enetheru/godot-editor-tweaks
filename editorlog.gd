@@ -14,6 +14,7 @@ const Self = preload("uid://bqnxqo33qkevi")
 
 static var static_self:Self
 
+static var EneLog:_EneLog
 
 ## [param opts] is the plugin's [TweakOptions] resource (settings helper target).
 static func toggle_search_bar(
