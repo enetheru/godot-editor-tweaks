@@ -235,6 +235,9 @@ var color_dim_grey:String = Color(0.4, 0.4, 0.4).to_html()
 #      ██████    ████   ███████ ██   ██ ██   ██ ██ ██████  ███████ ███████     #
 func                        ________OVERRIDES________              ()->void:pass
 
+const AutoloadReady = preload("uid://dljvsyrmitdbc")
+const AUTOLOAD_READY_SIGNAL:StringName = &"enelog_ready"
+
 func _ready() -> void:
 	var want_enable:bool = false
 
@@ -271,6 +274,10 @@ func _ready() -> void:
 			var pattern:String = stl.regex
 			stl[&"RegEx"] = RegEx.create_from_string(pattern)
 	styles_mutex.unlock()
+
+	var emit_err:Error = AutoloadReady.emit_autoload_ready( AUTOLOAD_READY_SIGNAL )
+	if emit_err != OK:
+		push_error("emit autoload ready failed: %s" % error_string(emit_err))
 
 
 #                    ██████  ██████  ██ ███    ██ ████████                     #
@@ -322,7 +329,7 @@ func printy(
 
 	if content is PackedByteArray:
 		var bytes:PackedByteArray = content
-		print(Enetheru.string.sbytes(bytes))
+		print(_sbytes(bytes))
 		return
 
 	var ctx := _build_context(content, args_in, object, indent, custom_stack)
@@ -460,10 +467,10 @@ func check_level( what_lvl:int = get_level(), object:Object = null ) -> bool:
 
 	if is_instance_valid(object):
 		var variant:Variant
-		variant = object.get(&'trace_class_lvl')
+		variant = object.get(&'class_lvl')
 		class_lvl = variant if variant is int else 0
 
-		variant = object.get(&'trace_local_lvl')
+		variant = object.get(&'local_lvl')
 		local_lvl = variant if variant is int else 0
 
 	# Logging is additive
@@ -512,6 +519,18 @@ func get_colour(type:int) -> Color:
 	if type & LogLevel.CRITICAL: return TWEAK_OPTS.color_notice_critical
 	return Color.DEEP_PINK
 
+
+## Distinct-ish colour for thread / header identity. Local copy of the old
+## utils `colour.random` — EneLog must not depend on that addon.
+func _random_colour( darken:float = 0.0 ) -> Color:
+	var c := Color(randf(), randf(), randf())
+	c = c.clamp(Color(0.4, 0.4, 0.4))
+	c = c.lightened(0.2).darkened(darken)
+	var v := Vector3(c.r, c.g, c.b)
+	v -= Vector3(0.5, 0.5, 0.5)
+	v = v.normalized() / 2 + Vector3(0.5, 0.5, 0.5)
+	return Color(v.x, v.y, v.z)
+
 #               ███████ ████████ ██████  ██ ███    ██  ██████                  #
 #               ██         ██    ██   ██ ██ ████   ██ ██                       #
 #               ███████    ██    ██████  ██ ██ ██  ██ ██   ███                 #
@@ -543,6 +562,32 @@ func strip_bbcode(s: String) -> String:
 	if regex.compile("\\[.*?\\]") != OK:
 		return "regex error"
 	return regex.sub(s, "", true)
+
+
+func _id_str( id:int, length:int = 4 ) -> String:
+	return "0x" + ("%016X" % id).right(length)
+
+
+func _sbytes( bytes:PackedByteArray, cols:int = 8 ) -> String:
+	if bytes.is_empty():
+		return "Empty"
+	var retval:Array = ["size: %d" % bytes.size()]
+	var position := 0
+	while true:
+		var slice:PackedByteArray = bytes.slice(position, position + cols)
+		if not slice.size():
+			break
+		var line:String = "%08X: " % position
+		for v in slice:
+			line += "%02X " % v
+		line = line.rpad(10 + cols * 3, ' ')
+		for v in slice:
+			line += char(v) if v > 32 else '.'
+		retval.append(line)
+		position += cols
+		if slice.size() < cols:
+			break
+	return '\n'.join(retval)
 
 
 # args dictionary values depending on their type.
@@ -746,7 +791,7 @@ func _apply_thread_and_proc_info(ctx: LogCtx) -> void:
 		ctx.thread_color = Color.WEB_GRAY.to_html()
 	else:
 		thread_color_mutex.lock()
-		var col:Color = thread_color.get_or_add(ctx.thread_id, Enetheru.colour.random())
+		var col:Color = thread_color.get_or_add(ctx.thread_id, _random_colour())
 		thread_color_mutex.unlock()
 		ctx.thread_color = col.to_html()
 		ctx.proc_icon = ""
@@ -804,7 +849,7 @@ func _apply_object_formatting(ctx: LogCtx) -> void:
 
 	if ctx.header_color.is_empty():
 		header_color_mutex.lock()
-		var col:Color = header_color.get_or_add(ctx.header_name, Enetheru.colour.random())
+		var col:Color = header_color.get_or_add(ctx.header_name, _random_colour())
 		header_color_mutex.unlock()
 		ctx.header_color = col.to_html()
 
@@ -1201,8 +1246,8 @@ func example_net_string() -> String:
 	var fd : Dictionary = {
 		'icon': "󰒍 " if server else "󰀑 ",
 		'iconc': 'yellow' if server else 'greenyellow',
-		'id': Enetheru.string.id_str( net_id ),
-		'idc': 'goldenrod' if server else Enetheru.colour.random().to_html() }
+		'id': _id_str(net_id),
+		'idc': 'goldenrod' if server else _random_colour().to_html() }
 	return "[color={iconc}]{icon}[/color][color={idc}]{id}[/color]".format(fd)
 
 
