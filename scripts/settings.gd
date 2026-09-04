@@ -47,6 +47,8 @@
 ##
 ## Tooltip idea (brute force):[br]
 ## https://github.com/PiCode9560/Godot-Editor-Settings-Description/blob/main/editor_settings_description.gd
+##[br][color=goldenrod]TODO[/color]: have a URL we can point to and verify we
+## have the latest version.
 
 # Host logger: sequential LogLevel + HintEnum + bitmask helpers (print_helper).
 # FIXME: prefer autoload EneLog once levels are unified.

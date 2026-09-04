@@ -12,6 +12,8 @@
 
 const Self = preload("uid://bqnxqo33qkevi")
 
+const Util = preload("uid://blodm3bymovpt")
+
 static var static_self:Self
 
 static var EneLog:_EneLog
@@ -638,7 +640,7 @@ func create_search_control() -> void:
 	# History Button
 	search_history_b = Button.new()
 	search_history_b.icon = ImageTexture.create_from_image(
-		Enetheru.image.overlay(
+		Util.overlay(
 			editor_theme.get_icon("Search", "EditorIcons").get_image(),
 			editor_theme.get_icon("GuiDropdown", "EditorIcons").get_image(),
 			Vector2i(11,1)))
@@ -1081,7 +1083,7 @@ func                        __________TRACE__________              ()->void:pass
 const LogLevel = EneLog.LogLevel
 
 ## Set the log-level for the Class
-static var trace_class_lvl:int = LogLevel.SILENT
+static var class_lvl:int = LogLevel.SILENT
 
 ## Set the log-level for the Class instance
 ## [br]Only Tracing with lvl below local and class level will be printed.
@@ -1089,10 +1091,10 @@ static var trace_class_lvl:int = LogLevel.SILENT
 ## [br]Levels are also bitflags, and only the lowest two bytes are tested.
 @export_enum("SILENT:0","CRITICAL:1","ERROR:2","WARNING:4",
 		"DEFAULT:8","NOTICE:16","DEBUG:32","TRACE:64","MASK:255")
-var trace_local_lvl:int = LogLevel.SILENT
+var local_lvl:int = LogLevel.SILENT
 
 ## Method to facilitate (Node).propagate_call( &'set_local_lvl', lvl )
-func set_local_lvl(lvl:int = 0) -> void: trace_local_lvl = lvl
+func set_local_lvl(lvl:int = 0) -> void: local_lvl = lvl
 
 ## Trace function calls with args in a dictionary, outputs rich text with links.
 func trace( args:Dictionary = {}, object:Object = self,

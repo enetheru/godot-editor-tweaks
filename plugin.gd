@@ -13,6 +13,11 @@ extends EditorPlugin
 
 const Self = preload("uid://setvleg6sni3")
 
+const Util = preload("uid://blodm3bymovpt")
+
+
+const ExportPlugin = preload("uid://bc5mjhhigjigq")
+
 const EditorIntegration = preload("uid://cl0kj8qvnhfam")
 
 ## Output-log search bar (no class_name — call statics on the script).
@@ -171,7 +176,7 @@ func _enter_tree() -> void:
 	if opts.experimental:               enable_experimental_features()
 
 	# Export Plugin
-	export_plugin = preload("export_plugin.gd").new()
+	export_plugin = ExportPlugin.new()
 	add_export_plugin(export_plugin)
 
 
@@ -568,13 +573,13 @@ static func dump_icons() -> void:
 		return
 	var lines:Array[String] = [
 		"",
-		Enetheru.bbcode.h1("Icons", editor_theme.default_font_size + 2),
+		Util.h1("Icons", editor_theme.default_font_size + 2),
 		"Grouped by icon_type"]
 
 	print_rich("\n".join(lines))
 	lines = []
 	for icon_type:String in editor_theme.get_icon_type_list():
-		lines.append(Enetheru.bbcode.h2(icon_type,
+		lines.append(Util.h2(icon_type,
 			editor_theme.default_font_size + 2))
 		lines.append(
 			'var icon:Texture2D = editor_theme.get_icon(<icon_name>, "%s")'
@@ -613,7 +618,7 @@ static func dump_colours() -> void:
 	var editor_theme:Theme = EditorInterface.get_editor_theme()
 	var lines:Array[String] = [
 		"",
-		Enetheru.bbcode.h1("Colours", editor_theme.default_font_size + 2),
+		Util.h1("Colours", editor_theme.default_font_size + 2),
 		"Grouped by color_type"]
 
 	print_rich("\n".join(lines))
@@ -621,7 +626,7 @@ static func dump_colours() -> void:
 
 	for color_type:String in editor_theme.get_color_type_list():
 		lines = [
-			Enetheru.bbcode.h2(color_type, editor_theme.default_font_size + 2),
+			Util.h2(color_type, editor_theme.default_font_size + 2),
 			'var color:Color = editor_theme.get_color(<color_name>, "%s")'
 			% color_type,
 			""]
