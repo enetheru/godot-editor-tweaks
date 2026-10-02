@@ -1071,7 +1071,7 @@ func draw_debug_text( position:Vector2, msg:String )-> void:
 
 
 #region trace
-const Log = preload( "uid://cg53dplfs48lb" )
+const Log = preload( "logging.gd" )
 static var class_lvl:int = Log.Level.SILENT
 @export_enum( "SILENT:0", "CRITICAL:1", "ERROR:3", "WARNING:7",
 		"NOTICE:15", "INFO:31", "DEBUG:63", "TRACE:127", "MASK:255" )
