@@ -10,9 +10,6 @@ extends Node
 ##
 ## Autoload name is [code]EneLog[/code] ([code]project.godot[/code]); class_name
 ## is [code]_EneLog[/code] so the autoload can own the global identifier.
-##[br][color=tomato]FIXME[/color]: [member TweakOptions.verbosity] is assigned
-## to [member _default_level]. [code]DEFAULT:8[/code] is [constant LogLevel.NOTICE]
-## and [code]NOTICE:16[/code] is [constant LogLevel.INFO].
 ##[br][color=goldenrod]TODO[/color]: [code]OS.delay_msec(4)[/code] in
 ## [method printy] is a blunt editor throttle — replace with rate limiting.
 ##[br][color=goldenrod]TODO[/color]: WorkerThreadPool.get_caller_task_id() for
@@ -37,36 +34,37 @@ const OSC_LINK_OPEN: String  = ESC + "]8;;"              # Start of OSC 8 hyperl
 const OSC_ST: String         = ESC + "\\"                # String Terminator
 const OSC_LINK_CLOSE: String = ESC + "]8;;" + OSC_ST     # End of OSC 8 hyperlink
 
-## Bitmask for tagging and discriminating messages.
+## Bitmask verbosity. Bare names are inclusive (the usual setting).
+## [code]EXCLUSIVE_*[/code] is one bit, for an event check.
+## Bare names come first so [code]find_key[/code] returns them.
 enum LogLevel {
-	SILENT   = 0x00, ##   0: Do not display anything.
+	SILENT   = 0x00, ##   0: No output.
 
-	CRITICAL = 0x01, ##   1: Reserved for only the highest priority, adds prefix 'Critical:'
-	ERROR    = 0x02, ##   3: An error has occurred, adds prefix 'Error:', prints stacktrace.
-	WARNING  = 0x04, ##   7: Warning, adds prefix 'Warning:', prints stacktrace.
-	NOTICE   = 0x08, ##  15: Sparse important information
-	INFO     = 0x10, ##  31: More information
-	DEBUG    = 0x20, ##  63: Debug Information
-	TRACE    = 0x40, ##  64: Function Calls and process.
+	CRITICAL = 0x01, ##   1: Through critical.
+	ERROR    = 0x03, ##   3: Through error.
+	WARNING  = 0x07, ##   7: Through warning.
+	NOTICE   = 0x0F, ##  15: Through notice.
+	INFO     = 0x1F, ##  31: Through info.
+	DEBUG    = 0x3F, ##  63: Through debug.
+	TRACE    = 0x7F, ## 127: Through trace.
 
-	MASK     = 0xFF,  ## 255: bitmask, or all levels.
+	MASK     = 0xFF, ## 255: All bits.
 
-	INCLUSIVE_CRITICAL = 0x01, ##   1: Reserved for only the highest priority, adds prefix 'Critical:'
-	INCLUSIVE_ERROR    = 0x03, ##   2: An error has occurred, adds prefix 'Error:', prints stacktrace.
-	INCLUSIVE_WARNING  = 0x07, ##   4: Warning, adds prefix 'Warning:', prints stacktrace.
-	INCLUSIVE_NOTICE   = 0x0F, ##   8: Sparse important information
-	INCLUSIVE_INFO     = 0x1F, ##  16: More information
-	INCLUSIVE_DEBUG    = 0x3F, ##  32: Debug Information
-	INCLUSIVE_TRACE    = 0x7F, ##  64: Function Calls and process.
+	EXCLUSIVE_CRITICAL = 0x01, ##   1: Critical bit.
+	EXCLUSIVE_ERROR    = 0x02, ##   2: Error bit.
+	EXCLUSIVE_WARNING  = 0x04, ##   4: Warning bit.
+	EXCLUSIVE_NOTICE   = 0x08, ##   8: Notice bit.
+	EXCLUSIVE_INFO     = 0x10, ##  16: Info bit.
+	EXCLUSIVE_DEBUG    = 0x20, ##  32: Debug bit.
+	EXCLUSIVE_TRACE    = 0x40, ##  64: Trace bit.
 
 	# Aliases
-	DEFAULT = NOTICE,
-	INCLUSIVE_DEFAULT = INCLUSIVE_NOTICE,
+	DEFAULT = NOTICE, ## Alias of [constant NOTICE].
 }
 
 var _levels: Dictionary = {}  # path_prefix -> level
 var levels_mutex := Mutex.new()
-var _default_level: int = LogLevel.INCLUSIVE_NOTICE
+var _default_level: int = LogLevel.NOTICE
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -154,7 +152,7 @@ func                        ________PROPERTIES_______              ()->void:pass
 var disabled:bool = false
 var max_level:int = LogLevel.MASK # aka all logging
 ## Engine printer mask. [constant LogLevel.MASK] keeps every line the existing gate already allowed.
-## Tested by the event's highest set bit, so [constant LogLevel.INCLUSIVE_NOTICE] is a ceiling.
+## Tested by the event's highest set bit, so [constant LogLevel.NOTICE] is a ceiling.
 var console_level:int = LogLevel.MASK
 ## File batch mask. Independent of [member console_level], same default and same bit test.
 var file_level:int = LogLevel.MASK
@@ -409,30 +407,6 @@ func print_end_frame_deferred(_physics:bool = false) -> void:
 	reset = false
 
 
-func ptrace() -> void:
-	if _default_level < LogLevel.TRACE: return
-	if OS.get_thread_caller_id() in thread_filter:return
-	var colour:String = get_colour(LogLevel.TRACE).to_html()
-	var call_site:Dictionary = get_stack()[1]
-	var line:String = link('{source}:{line}'.format(call_site),
-		"[color=57b3ff]{function}[/color]".format(call_site))
-	_emit( "[color=%s]%s[/color]" % [colour, line], true, LogLevel.TRACE )
-
-
-func plog( level:int, ...message:Array ) -> void:
-	if _default_level < level: return
-	if OS.get_thread_caller_id() in thread_filter:return
-	var colour:String = get_colour(level).to_html()
-	var padding:String = "".lpad(get_stack().size()-1, '\t') if level == LogLevel.TRACE else ""
-	_emit( padding + "[color=%s]%s[/color]" % [colour, ' '.join(message)], true, level )
-
-
-func plog_check( level:int, ...message:Array ) -> bool:
-	if _default_level < level: return false
-	plog(level, message)
-	return true
-
-
 #         ███    ███ ███████ ████████ ██   ██  ██████  ██████  ███████         #
 #         ████  ████ ██         ██    ██   ██ ██    ██ ██   ██ ██              #
 #         ██ ████ ██ █████      ██    ███████ ██    ██ ██   ██ ███████         #
@@ -549,16 +523,26 @@ func net_is_not_valid() -> bool: return false
 func get_zero_int() -> int: return 0
 
 
-## Match the flag of most importance
+## Colour for the highest set bit of [param type].
 func get_colour(type:int) -> Color:
-	if type & LogLevel.TRACE:    return TWEAK_OPTS.color_notice_trace
-	if type & LogLevel.DEBUG:    return TWEAK_OPTS.color_notice_debug
-	if type & LogLevel.NOTICE:   return TWEAK_OPTS.color_notice_notice
-	if type & LogLevel.DEFAULT:  return TWEAK_OPTS.color_notice_notice
-	if type & LogLevel.WARNING:  return TWEAK_OPTS.color_notice_warning
-	if type & LogLevel.ERROR:    return TWEAK_OPTS.color_notice_error
-	if type & LogLevel.CRITICAL: return TWEAK_OPTS.color_notice_critical
-	return Color.DEEP_PINK
+	# INFO shares the notice colour. An unnamed bit stays deep pink.
+	if type <= 0:
+		return Color.DEEP_PINK
+	match _highest_bit(type):
+		LogLevel.EXCLUSIVE_TRACE:
+			return TWEAK_OPTS.color_notice_trace
+		LogLevel.EXCLUSIVE_DEBUG:
+			return TWEAK_OPTS.color_notice_debug
+		LogLevel.EXCLUSIVE_INFO, LogLevel.EXCLUSIVE_NOTICE:
+			return TWEAK_OPTS.color_notice_notice
+		LogLevel.EXCLUSIVE_WARNING:
+			return TWEAK_OPTS.color_notice_warning
+		LogLevel.EXCLUSIVE_ERROR:
+			return TWEAK_OPTS.color_notice_error
+		LogLevel.EXCLUSIVE_CRITICAL:
+			return TWEAK_OPTS.color_notice_critical
+		_:
+			return Color.DEEP_PINK
 
 
 ## Distinct-ish colour for thread / header identity. Local copy of the old

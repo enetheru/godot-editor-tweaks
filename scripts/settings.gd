@@ -52,6 +52,89 @@
 
 const Log = preload( "../logging.gd" )
 
+## [enum PropertyHint] value to its global constant name.
+## This build keeps global enums off ClassDB.
+const _HINT_NAMES:Dictionary = {
+	PROPERTY_HINT_NONE: &"PROPERTY_HINT_NONE",
+	PROPERTY_HINT_RANGE: &"PROPERTY_HINT_RANGE",
+	PROPERTY_HINT_ENUM: &"PROPERTY_HINT_ENUM",
+	PROPERTY_HINT_ENUM_SUGGESTION: &"PROPERTY_HINT_ENUM_SUGGESTION",
+	PROPERTY_HINT_EXP_EASING: &"PROPERTY_HINT_EXP_EASING",
+	PROPERTY_HINT_LINK: &"PROPERTY_HINT_LINK",
+	PROPERTY_HINT_FLAGS: &"PROPERTY_HINT_FLAGS",
+	PROPERTY_HINT_LAYERS_2D_RENDER: &"PROPERTY_HINT_LAYERS_2D_RENDER",
+	PROPERTY_HINT_LAYERS_2D_PHYSICS: &"PROPERTY_HINT_LAYERS_2D_PHYSICS",
+	PROPERTY_HINT_LAYERS_2D_NAVIGATION: &"PROPERTY_HINT_LAYERS_2D_NAVIGATION",
+	PROPERTY_HINT_LAYERS_3D_RENDER: &"PROPERTY_HINT_LAYERS_3D_RENDER",
+	PROPERTY_HINT_LAYERS_3D_PHYSICS: &"PROPERTY_HINT_LAYERS_3D_PHYSICS",
+	PROPERTY_HINT_LAYERS_3D_NAVIGATION: &"PROPERTY_HINT_LAYERS_3D_NAVIGATION",
+	PROPERTY_HINT_FILE: &"PROPERTY_HINT_FILE",
+	PROPERTY_HINT_DIR: &"PROPERTY_HINT_DIR",
+	PROPERTY_HINT_GLOBAL_FILE: &"PROPERTY_HINT_GLOBAL_FILE",
+	PROPERTY_HINT_GLOBAL_DIR: &"PROPERTY_HINT_GLOBAL_DIR",
+	PROPERTY_HINT_RESOURCE_TYPE: &"PROPERTY_HINT_RESOURCE_TYPE",
+	PROPERTY_HINT_MULTILINE_TEXT: &"PROPERTY_HINT_MULTILINE_TEXT",
+	PROPERTY_HINT_EXPRESSION: &"PROPERTY_HINT_EXPRESSION",
+	PROPERTY_HINT_PLACEHOLDER_TEXT: &"PROPERTY_HINT_PLACEHOLDER_TEXT",
+	PROPERTY_HINT_COLOR_NO_ALPHA: &"PROPERTY_HINT_COLOR_NO_ALPHA",
+	PROPERTY_HINT_OBJECT_ID: &"PROPERTY_HINT_OBJECT_ID",
+	PROPERTY_HINT_TYPE_STRING: &"PROPERTY_HINT_TYPE_STRING",
+	PROPERTY_HINT_NODE_PATH_TO_EDITED_NODE: &"PROPERTY_HINT_NODE_PATH_TO_EDITED_NODE",
+	PROPERTY_HINT_OBJECT_TOO_BIG: &"PROPERTY_HINT_OBJECT_TOO_BIG",
+	PROPERTY_HINT_NODE_PATH_VALID_TYPES: &"PROPERTY_HINT_NODE_PATH_VALID_TYPES",
+	PROPERTY_HINT_SAVE_FILE: &"PROPERTY_HINT_SAVE_FILE",
+	PROPERTY_HINT_GLOBAL_SAVE_FILE: &"PROPERTY_HINT_GLOBAL_SAVE_FILE",
+	PROPERTY_HINT_INT_IS_OBJECTID: &"PROPERTY_HINT_INT_IS_OBJECTID",
+	PROPERTY_HINT_INT_IS_POINTER: &"PROPERTY_HINT_INT_IS_POINTER",
+	PROPERTY_HINT_ARRAY_TYPE: &"PROPERTY_HINT_ARRAY_TYPE",
+	PROPERTY_HINT_LOCALE_ID: &"PROPERTY_HINT_LOCALE_ID",
+	PROPERTY_HINT_LOCALIZABLE_STRING: &"PROPERTY_HINT_LOCALIZABLE_STRING",
+	PROPERTY_HINT_NODE_TYPE: &"PROPERTY_HINT_NODE_TYPE",
+	PROPERTY_HINT_HIDE_QUATERNION_EDIT: &"PROPERTY_HINT_HIDE_QUATERNION_EDIT",
+	PROPERTY_HINT_PASSWORD: &"PROPERTY_HINT_PASSWORD",
+	PROPERTY_HINT_LAYERS_AVOIDANCE: &"PROPERTY_HINT_LAYERS_AVOIDANCE",
+	PROPERTY_HINT_DICTIONARY_TYPE: &"PROPERTY_HINT_DICTIONARY_TYPE",
+	PROPERTY_HINT_TOOL_BUTTON: &"PROPERTY_HINT_TOOL_BUTTON",
+	PROPERTY_HINT_ONESHOT: &"PROPERTY_HINT_ONESHOT",
+	PROPERTY_HINT_GROUP_ENABLE: &"PROPERTY_HINT_GROUP_ENABLE",
+	PROPERTY_HINT_INPUT_NAME: &"PROPERTY_HINT_INPUT_NAME",
+	PROPERTY_HINT_FILE_PATH: &"PROPERTY_HINT_FILE_PATH",
+}
+
+## Single-bit [enum PropertyUsageFlags] value to its global constant name.
+## Combined flags such as [constant PROPERTY_USAGE_DEFAULT] are left out.
+const _USAGE_BITS:Dictionary = {
+	PROPERTY_USAGE_STORAGE: &"PROPERTY_USAGE_STORAGE",
+	PROPERTY_USAGE_EDITOR: &"PROPERTY_USAGE_EDITOR",
+	PROPERTY_USAGE_INTERNAL: &"PROPERTY_USAGE_INTERNAL",
+	PROPERTY_USAGE_CHECKABLE: &"PROPERTY_USAGE_CHECKABLE",
+	PROPERTY_USAGE_CHECKED: &"PROPERTY_USAGE_CHECKED",
+	PROPERTY_USAGE_GROUP: &"PROPERTY_USAGE_GROUP",
+	PROPERTY_USAGE_CATEGORY: &"PROPERTY_USAGE_CATEGORY",
+	PROPERTY_USAGE_SUBGROUP: &"PROPERTY_USAGE_SUBGROUP",
+	PROPERTY_USAGE_CLASS_IS_BITFIELD: &"PROPERTY_USAGE_CLASS_IS_BITFIELD",
+	PROPERTY_USAGE_NO_INSTANCE_STATE: &"PROPERTY_USAGE_NO_INSTANCE_STATE",
+	PROPERTY_USAGE_RESTART_IF_CHANGED: &"PROPERTY_USAGE_RESTART_IF_CHANGED",
+	PROPERTY_USAGE_SCRIPT_VARIABLE: &"PROPERTY_USAGE_SCRIPT_VARIABLE",
+	PROPERTY_USAGE_STORE_IF_NULL: &"PROPERTY_USAGE_STORE_IF_NULL",
+	PROPERTY_USAGE_UPDATE_ALL_IF_MODIFIED: &"PROPERTY_USAGE_UPDATE_ALL_IF_MODIFIED",
+	PROPERTY_USAGE_SCRIPT_DEFAULT_VALUE: &"PROPERTY_USAGE_SCRIPT_DEFAULT_VALUE",
+	PROPERTY_USAGE_CLASS_IS_ENUM: &"PROPERTY_USAGE_CLASS_IS_ENUM",
+	PROPERTY_USAGE_NIL_IS_VARIANT: &"PROPERTY_USAGE_NIL_IS_VARIANT",
+	PROPERTY_USAGE_ARRAY: &"PROPERTY_USAGE_ARRAY",
+	PROPERTY_USAGE_ALWAYS_DUPLICATE: &"PROPERTY_USAGE_ALWAYS_DUPLICATE",
+	PROPERTY_USAGE_NEVER_DUPLICATE: &"PROPERTY_USAGE_NEVER_DUPLICATE",
+	PROPERTY_USAGE_HIGH_END_GFX: &"PROPERTY_USAGE_HIGH_END_GFX",
+	PROPERTY_USAGE_NODE_PATH_FROM_SCENE_ROOT: &"PROPERTY_USAGE_NODE_PATH_FROM_SCENE_ROOT",
+	PROPERTY_USAGE_RESOURCE_NOT_PERSISTENT: &"PROPERTY_USAGE_RESOURCE_NOT_PERSISTENT",
+	PROPERTY_USAGE_KEYING_INCREMENTS: &"PROPERTY_USAGE_KEYING_INCREMENTS",
+	PROPERTY_USAGE_DEFERRED_SET_RESOURCE: &"PROPERTY_USAGE_DEFERRED_SET_RESOURCE",
+	PROPERTY_USAGE_EDITOR_INSTANTIATE_OBJECT: &"PROPERTY_USAGE_EDITOR_INSTANTIATE_OBJECT",
+	PROPERTY_USAGE_EDITOR_BASIC_SETTING: &"PROPERTY_USAGE_EDITOR_BASIC_SETTING",
+	PROPERTY_USAGE_READ_ONLY: &"PROPERTY_USAGE_READ_ONLY",
+	PROPERTY_USAGE_SECRET: &"PROPERTY_USAGE_SECRET",
+}
+
 
 # ██████  ██████   ██████  ██████  ███████ ██████  ████████ ██ ███████ ███████ #
 # ██   ██ ██   ██ ██    ██ ██   ██ ██      ██   ██    ██    ██ ██      ██      #
@@ -118,29 +201,22 @@ func _init( target:Object, prefix:String = "plugin/un-named" ) -> void:
 #         ██      ██ ███████    ██    ██   ██  ██████  ██████  ███████         #
 func                        _________METHODS_________              ()->void:pass
 
-## Name from [param enum_name] on [code]@GlobalScope[/code] equal to [param value].
-func _global_enum_name( enum_name:StringName, value:int ) -> String:
-	# Native enums have no find_key.
-	var constants:PackedStringArray = ClassDB.class_get_enum_constants(
-			&"@GlobalScope", enum_name )
-	for key:String in constants:
-		if ClassDB.class_get_integer_constant( &"@GlobalScope", StringName(key) ) == value:
-			return key
-	return str(value)
+## Global constant name for [param hint].
+func _hint_name( hint:int ) -> String:
+	# Unknown hints stay as the integer.
+	var key:Variant = _HINT_NAMES.get( hint )
+	if key == null:
+		return str( hint )
+	return str( key )
 
 
-## Single-bit names from [param enum_name] set in [param value].
-func _global_enum_flags( enum_name:StringName, value:int ) -> PackedStringArray:
-	# A combined flag matches whenever its parts are set, so only powers of two count.
+## Single-bit usage names set in [param usage].
+func _usage_names( usage:int ) -> PackedStringArray:
+	# The map holds only powers of two, so a combined flag is never named whole.
 	var names := PackedStringArray()
-	var constants:PackedStringArray = ClassDB.class_get_enum_constants(
-			&"@GlobalScope", enum_name )
-	for key:String in constants:
-		var bit:int = ClassDB.class_get_integer_constant( &"@GlobalScope", StringName(key) )
-		if bit == 0 or (bit & (bit - 1)) != 0:
-			continue
-		if value & bit:
-			if not names.push_back( key ):
+	for bit:int in _USAGE_BITS:
+		if usage & bit:
+			if not names.push_back( str( _USAGE_BITS[bit] ) ):
 				break
 	return names
 
@@ -164,13 +240,13 @@ func add_target_properties() -> void:
 		Log.lvl( Log.Level.TRACE, ["property.type:", type_string(property_type)], self )
 		var property_hint:int = property.hint
 		Log.lvl( Log.Level.TRACE,
-				["property.hint:", _global_enum_name(&"PropertyHint", property_hint)], self )
+				["property.hint:", _hint_name( property_hint )], self )
 		var hint_string:String = property.hint_string
 		Log.lvl( Log.Level.TRACE, ["property.hint_string:", hint_string], self )
 
 		var usage:int = property.usage
 		Log.lvl( Log.Level.TRACE,
-				["property.usage:", _global_enum_flags(&"PropertyUsageFlags", usage)], self )
+				["property.usage:", _usage_names( usage )], self )
 
 		var property_value:Variant = _target.get(property_name)
 		Log.lvl( Log.Level.TRACE, ["value:", property_value], self )

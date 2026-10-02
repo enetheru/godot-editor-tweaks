@@ -2,10 +2,6 @@
 extends Resource
 class_name TweakOptions
 ## Shared option resource for editor-tweaks (ProjectSettings + the editor plugin).
-##
-## [member verbosity] is an [code]@export_flags[/code] value. [code]plugin.gd[/code]
-## writes it onto the private [code]ETLog._default_level[/code]. [code]DEFAULT:8[/code]
-## is the [code]EneLog[/code] NOTICE bit, and [code]NOTICE:16[/code] is the INFO bit.
 
 @export
 ## A variable to help me turn on and off debug features and tests.
@@ -14,11 +10,6 @@ var debug:bool = false
 @export
 ## Turn on and off experimental and development features.
 var experimental:bool = false
-
-@export_flags(
-	"CRITICAL:1", "ERROR:2", "WARNING:4", "DEFAULT:8",
-	"NOTICE:16", "DEBUG:32", "TRACE:64")
-var verbosity:int = 0
 
 
 func                        __Output_Log_____________              ()->void:pass

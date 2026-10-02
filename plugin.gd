@@ -5,11 +5,20 @@ extends EditorPlugin
 ##[br][color=tomato]FIXME[/color]: Plugin has grown past one concern. Split into
 ## focused modules (log discovery, Output log search, code-editor menus,
 ## settings, logging) with this file as a thin orchestrator.
-##[br][color=tomato]FIXME[/color]: [member ETLog] is a private [code]_EneLog[/code]
-## child. [member TweakOptions.verbosity] is copied onto its [code]_default_level[/code].
 ##[br][color=goldenrod]TODO[/color]: Dependency check before load (lazy plugin
 ## bootstrap, vim-lazy style).
 ##[br][color=goldenrod]TODO[/color]: monospace glyphs still stubbed.
+
+#region trace
+const Log = preload( "logging.gd" )
+static var class_lvl:int = Log.Level.SILENT
+@export_enum( "SILENT:0", "CRITICAL:1", "ERROR:3", "WARNING:7",
+		"NOTICE:15", "INFO:31", "DEBUG:63", "TRACE:127", "MASK:255" )
+var local_lvl:int = Log.Level.SILENT
+func trace( args:Dictionary = {}, object:Object = self,
+			stack:Array = Log.get_stack_popped( 1 ) ) -> void:
+	Log.trace( args, object, stack )
+#endregion
 
 const Self = preload("uid://setvleg6sni3")
 
@@ -44,8 +53,6 @@ static var plugin_path:String
 
 var export_plugin:EditorExportPlugin
 
-var ETLog:_EneLog
-
 # TODO: should opts be static / shared via a single resource owner?
 var opts:TweakOptions
 
@@ -68,7 +75,7 @@ func _on_editorlog_link_clicked( meta:Variant ) -> void:
 	if url.is_empty():
 		return
 	if not "://" in url:
-		ETLog.plog(ETLog.LogLevel.DEFAULT, "url: %s" % url)
+		Log.lvl(Log.Level.NOTICE, "url: %s" % url, self)
 		return
 	if url.begins_with("res://"):
 		# res://path:line:col — path may contain ":" only after scheme.
@@ -87,7 +94,7 @@ func _on_editorlog_link_clicked( meta:Variant ) -> void:
 			_:
 				EditorInterface.edit_resource(load(url))
 	else:
-		ETLog.plog(ETLog.LogLevel.DEFAULT, "url: %s" % url)
+		Log.lvl(Log.Level.NOTICE, "url: %s" % url, self)
 		@warning_ignore("return_value_discarded")
 		OS.shell_open(url)
 
@@ -95,14 +102,12 @@ func _on_editorlog_link_clicked( meta:Variant ) -> void:
 # TODO: include setting path so a bad write can be reverted.
 func _on_project_settings_changed(
 			setting_name:String, setting_value:Variant ) -> void:
-	ETLog.plog(ETLog.LogLevel.TRACE, "".join([setting_name, ":", setting_value]))
+	Log.lvl(Log.Level.TRACE, "".join([setting_name, ":", setting_value]), self)
 	match setting_name:
 		"experimental" when setting_value == true:
 			enable_experimental_features()
 		"experimental":
 			disable_experimental_features()
-		"verbosity":
-			ETLog._default_level = setting_value
 		"enable_ligatures" when setting_value is bool:
 			var b:bool = setting_value
 			editorlog_ligatures_toggle(b)
@@ -153,18 +158,14 @@ func _init() -> void:
 	@warning_ignore("return_value_discarded")
 	settings_hlp.settings_changed.connect(_on_project_settings_changed)
 
-	ETLog = _EneLog.new()
-	add_child( ETLog ) # Ensures that the logger is cleaned up when the plugin is
-
 	icons_dump = Self.dump_icons
 	colours_dump = Self.dump_colours
 
-	ETLog.plog(ETLog.LogLevel.DEBUG, "%s._init() - Completed" % name)
+	Log.lvl(Log.Level.DEBUG, "%s._init() - Completed" % name, self)
 
 
 func _enter_tree() -> void:
-	ETLog._default_level = opts.verbosity
-	ETLog.ptrace()
+	trace()
 	if opts.enable_ligatures:           editorlog_ligatures_toggle(opts.enable_ligatures)
 	if opts.add_rotate_bbcode_effect:   editorlog_rotate_toggle(opts.add_rotate_bbcode_effect)
 	if opts.enable_output_search_bar:   editorlog_search_toggle(opts.enable_output_search_bar)
@@ -181,7 +182,7 @@ func _enter_tree() -> void:
 
 
 func _exit_tree() -> void:
-	ETLog.ptrace()
+	trace()
 	if opts.experimental:
 		disable_experimental_features()
 
@@ -189,21 +190,21 @@ func _exit_tree() -> void:
 		remove_export_plugin(export_plugin)
 
 func _get_plugin_name() -> String:
-	ETLog.ptrace()
+	trace()
 	return plugin_name
 
 
 #func _get_plugin_icon() -> Texture2D:
-	#ETLog.plog( ETLog.LogLevel.TRACE, "%s._get_plugin_icon()" % name )
+	#Log.lvl( Log.Level.TRACE, "%s._get_plugin_icon()" % name, self )
 	#return ICON_BW_TINY
 
 
 func _enable_plugin() -> void:
-	ETLog.ptrace()
+	trace()
 
 
 func _disable_plugin() -> void:
-	ETLog.ptrace()
+	trace()
 
 
 #         ███    ███ ███████ ████████ ██   ██  ██████  ██████  ███████         #
@@ -215,11 +216,11 @@ func                        _________METHODS_________              ()->void:pass
 
 
 func enable_experimental_features() -> void:
-	ETLog.plog( ETLog.LogLevel.DEBUG, "enable_experimental_features" )
+	Log.lvl( Log.Level.DEBUG, "enable_experimental_features", self )
 
 
 func disable_experimental_features() -> void:
-	ETLog.plog( ETLog.LogLevel.DEBUG, "disable_experimental_features" )
+	Log.lvl( Log.Level.DEBUG, "disable_experimental_features", self )
 
 
 # EditorLog discovery — prefer EditorIntegration; keep thin wrappers for
@@ -265,12 +266,12 @@ func                        __Line_Spacing___________              ()->void:pass
 ## Line Spacing Description
 var was_enabled:bool = false
 func linespacing_toggle( toggle_on:bool ) -> void:
-	ETLog.ptrace()
+	trace()
 	if toggle_on == was_enabled: return
 	was_enabled = toggle_on
 	var code_font:FontVariation = EditorIntegration.get_code_font()
 	if not code_font:
-		ETLog.plog(ETLog.LogLevel.ERROR, "Unable to get font:CodeEdit from editor theme.")
+		Log.lvl(Log.Level.ERROR, "Unable to get font:CodeEdit from editor theme.", self)
 		return
 	code_font.spacing_top = opts.adjust_linespacing_above if toggle_on else -1
 	code_font.spacing_bottom = opts.adjust_linespacing_below if toggle_on else -1
@@ -294,26 +295,26 @@ var method_trace_args_factory:Object
 var method_trace_args_cm:EditorContextMenuPlugin
 
 func make_method_trace_line_toggle( toggled_on:bool ) -> void:
-	ETLog.ptrace()
+	trace()
 	if toggled_on:
 		if not is_instance_valid(method_trace_args_factory):
 			var script_path:String = plugin_dir.path_join("scripts/method_trace_args.gd")
 			method_trace_args_factory = load(script_path)
 		if not is_instance_valid(method_trace_args_factory):
-			ETLog.plog(ETLog.LogLevel.ERROR, "Failure to create MethodTraceArgs factory script instance")
+			Log.lvl(Log.Level.ERROR, "Failure to create MethodTraceArgs factory script instance", self)
 			return
 		if is_instance_valid(method_trace_args_cm): return
-		ETLog.plog(ETLog.LogLevel.DEFAULT, "Creating MethodTraceArgs ContextMenuPlugin")
+		Log.lvl(Log.Level.NOTICE, "Creating MethodTraceArgs ContextMenuPlugin", self)
 		method_trace_args_cm = method_trace_args_factory.call(&'create_method_trace_args_cm')
 		if not is_instance_valid(method_trace_args_cm):
-			ETLog.plog(ETLog.LogLevel.ERROR, "Creation of MethodTraceArgs ContextMenuPlugin Failed")
+			Log.lvl(Log.Level.ERROR, "Creation of MethodTraceArgs ContextMenuPlugin Failed", self)
 			return
 		add_context_menu_plugin(
 			EditorContextMenuPlugin.ContextMenuSlot.CONTEXT_SLOT_SCRIPT_EDITOR_CODE,
 			method_trace_args_cm )
 	else:
 		if is_instance_valid(method_trace_args_cm):
-			ETLog.plog(ETLog.LogLevel.DEFAULT, "Remove MethodTraceArgs ContextMenuPlugin")
+			Log.lvl(Log.Level.NOTICE, "Remove MethodTraceArgs ContextMenuPlugin", self)
 			remove_context_menu_plugin( method_trace_args_cm )
 			method_trace_args_cm = null
 
@@ -340,11 +341,11 @@ func                        __Ligatures______________              ()->void:pass
 ##
 ## Ligatures Description
 func editorlog_ligatures_toggle( toggled_on:bool ) -> void:
-	ETLog.ptrace()
+	trace()
 	if toggled_on:
-		ETLog.plog(ETLog.LogLevel.DEFAULT, "Enable EditorLog Ligatures")
+		Log.lvl(Log.Level.NOTICE, "Enable EditorLog Ligatures", self)
 	else:
-		ETLog.plog(ETLog.LogLevel.DEFAULT, "Disable EditorLog Ligatures")
+		Log.lvl(Log.Level.NOTICE, "Disable EditorLog Ligatures", self)
 	var editor_theme:Theme = EditorInterface.get_editor_theme()
 	# 1667329140 = 'calt' OpenType feature tag.
 	for font_name:String in editorlog_font_names:
@@ -371,21 +372,21 @@ var sideways_effect:RichTextEffect = preload("sideways_effect.tres")
 
 
 func editorlog_rotate_toggle( toggled_on:bool ) -> void:
-	ETLog.ptrace()
+	trace()
 	var output_rtl:RichTextLabel = EditorIntegration.get_output_rtl()
 	if not is_instance_valid(output_rtl):
-		ETLog.plog(ETLog.LogLevel.ERROR,
-			"editorlog_rotate_toggle: Output RichTextLabel not found")
+		Log.lvl(Log.Level.ERROR,
+			"editorlog_rotate_toggle: Output RichTextLabel not found", self)
 		return
 	if not is_instance_valid(sideways_effect):
-		ETLog.plog(ETLog.LogLevel.ERROR,
-			"editorlog_rotate_toggle: sideways_effect missing")
+		Log.lvl(Log.Level.ERROR,
+			"editorlog_rotate_toggle: sideways_effect missing", self)
 		return
 	if toggled_on:
-		ETLog.plog(ETLog.LogLevel.DEFAULT, "Enable EditorLog Sideways Text Effect")
+		Log.lvl(Log.Level.NOTICE, "Enable EditorLog Sideways Text Effect", self)
 		output_rtl.install_effect(sideways_effect)
 	else:
-		ETLog.plog(ETLog.LogLevel.DEFAULT, "Disable EditorLog Sideways Text Effect")
+		Log.lvl(Log.Level.NOTICE, "Disable EditorLog Sideways Text Effect", self)
 		if sideways_effect in output_rtl.custom_effects:
 			output_rtl.custom_effects.erase(sideways_effect)
 #endregion BBCode Rotate
@@ -403,16 +404,16 @@ func                        __Search_Bar_____________              ()->void:pass
 ##
 ## Search Bar Description
 func editorlog_search_toggle( toggled_on:bool ) -> void:
-	ETLog.ptrace()
+	trace()
 	var logref:Control = EditorIntegration.get_editorlog()
 	if not is_instance_valid(logref):
-		ETLog.plog(ETLog.LogLevel.ERROR,
-			"editorlog_search_toggle: EditorLog not found")
+		Log.lvl(Log.Level.ERROR,
+			"editorlog_search_toggle: EditorLog not found", self)
 		return
 	if not logref is BoxContainer:
-		ETLog.plog(ETLog.LogLevel.ERROR,
+		Log.lvl(Log.Level.ERROR,
 			"editorlog_search_toggle: EditorLog is %s, need BoxContainer"
-			% logref.get_class())
+			% logref.get_class(), self)
 		return
 	EditorLogSearch.toggle_search_bar(logref as BoxContainer, toggled_on, opts)
 
@@ -434,7 +435,7 @@ func                        __Clickable_Links________              ()->void:pass
 var output_rtl_og_conn:Array
 
 func editorlog_url_links_set( toggle_on:bool ) -> void:
-	ETLog.ptrace()
+	trace()
 	if toggle_on:
 		editorlog_url_links_enabled()
 	else:
@@ -442,11 +443,11 @@ func editorlog_url_links_set( toggle_on:bool ) -> void:
 
 
 func editorlog_url_links_enabled() -> void:
-	ETLog.ptrace()
+	trace()
 	var output_rtl:RichTextLabel = EditorIntegration.get_output_rtl()
 	if not is_instance_valid(output_rtl):
-		ETLog.plog(ETLog.LogLevel.ERROR,
-			"editorlog_url_links_enabled: Output RichTextLabel not found")
+		Log.lvl(Log.Level.ERROR,
+			"editorlog_url_links_enabled: Output RichTextLabel not found", self)
 		return
 
 	# output_rtl.autowrap_mode = TextServer.AUTOWRAP_OFF
@@ -467,7 +468,7 @@ func editorlog_url_links_disabled() -> void:
 	var output_rtl:RichTextLabel = EditorIntegration.get_output_rtl()
 	if not is_instance_valid(output_rtl):
 		return
-	ETLog.ptrace()
+	trace()
 	if output_rtl.meta_clicked.is_connected(_on_editorlog_link_clicked):
 		output_rtl.meta_clicked.disconnect(_on_editorlog_link_clicked)
 	for c:Dictionary in output_rtl_og_conn:
@@ -496,7 +497,7 @@ var rich_paste_factory:Object
 var rich_paste_cm:EditorContextMenuPlugin
 
 func editorlog_rich_paste_toggle( toggled_on:bool ) -> void:
-	ETLog.ptrace()
+	trace()
 	if toggled_on:
 		if is_instance_valid(rich_paste_cm):
 			return
@@ -505,21 +506,21 @@ func editorlog_rich_paste_toggle( toggled_on:bool ) -> void:
 				"scripts/rich_paste.gd")
 			rich_paste_factory = load(rich_paste_script_path)
 		if not is_instance_valid(rich_paste_factory):
-			ETLog.plog(ETLog.LogLevel.ERROR,
-				"Failure to create rich paste factory script instance")
+			Log.lvl(Log.Level.ERROR,
+				"Failure to create rich paste factory script instance", self)
 			return
-		ETLog.plog(ETLog.LogLevel.DEFAULT, "Creating Rich Paste ContextMenuPlugin")
+		Log.lvl(Log.Level.NOTICE, "Creating Rich Paste ContextMenuPlugin", self)
 		rich_paste_cm = rich_paste_factory.call(&"create_rich_paste_cm")
 		if not is_instance_valid(rich_paste_cm):
-			ETLog.plog(ETLog.LogLevel.ERROR,
-				"Creation of Rich Paste ContextMenuPlugin Failed")
+			Log.lvl(Log.Level.ERROR,
+				"Creation of Rich Paste ContextMenuPlugin Failed", self)
 			return
 		add_context_menu_plugin(
 			EditorContextMenuPlugin.ContextMenuSlot.CONTEXT_SLOT_SCRIPT_EDITOR_CODE,
 			rich_paste_cm)
 	else:
 		if is_instance_valid(rich_paste_cm):
-			ETLog.plog(ETLog.LogLevel.DEFAULT, "Remove Rich Paste ContextMenuPlugin")
+			Log.lvl(Log.Level.NOTICE, "Remove Rich Paste ContextMenuPlugin", self)
 			remove_context_menu_plugin(rich_paste_cm)
 			rich_paste_cm = null
 
@@ -539,16 +540,16 @@ func                        __Monospaced_Font________              ()->void:pass
 ##
 ## Monospaced Font Description
 func monospace_glyphs_toggle( toggled_on:bool ) -> void:
-	ETLog.ptrace()
+	trace()
 	var output_rtl:RichTextLabel = EditorIntegration.get_output_rtl()
 	if not is_instance_valid(output_rtl):
 		return
 	# FIXME: implementation stripped — only logs enable/disable.
 	# Prior experiment used TextServer font fixed-size for braille glyphs.
 	if toggled_on:
-		ETLog.plog(ETLog.LogLevel.DEFAULT, "Enable Monospace Font Glyphs Fixes")
+		Log.lvl(Log.Level.NOTICE, "Enable Monospace Font Glyphs Fixes", self)
 	else:
-		ETLog.plog(ETLog.LogLevel.DEFAULT, "Disable Monospace Font Glyphs Fixes")
+		Log.lvl(Log.Level.NOTICE, "Disable Monospace Font Glyphs Fixes", self)
 
 #endregion Monospaced Font
 
