@@ -185,7 +185,7 @@ func _on_vsb_changed( _value:float ) -> void:
 	_vsb_debounce_flag = true
 	_rtl_vsb.value_changed.disconnect(_on_vsb_changed)
 
-	trace_lvl(EneLog.LogLevel.INFO, "_on_vsb_changed(%s)"% [_value])
+	Log.lvl(Log.Level.INFO, "_on_vsb_changed(%s)"% [_value], self)
 	_rtl_visible_p_range = get_visible_paragraph_range()
 
 	await EditorInterface.get_base_control().get_tree().create_timer(0.1).timeout
@@ -227,7 +227,7 @@ func _on_search_toggled( toggled_on:bool ) -> void:
 
 
 func _on_pattern_changed( new_pattern:String ) -> void:
-	trace_lvl(EneLog.LogLevel.INFO, "_on_pattern_changed( %s )"% [new_pattern])
+	Log.lvl(Log.Level.INFO, "_on_pattern_changed( %s )"% [new_pattern], self)
 	search_pattern = new_pattern
 	if not debounce_timer.is_stopped(): return
 	debounce_timer.start(debounce_delay)
@@ -274,7 +274,7 @@ func _on_match_prev_pressed() -> void:
 			at_first_match = false
 		else:
 			# TODO: toast / status when already at first match
-			trace_lvl(EneLog.LogLevel.NOTICE, "# TODO: pop for being at the top")
+			Log.lvl(Log.Level.NOTICE, "# TODO: pop for being at the top", self)
 			at_first_match = true
 			return
 
@@ -296,7 +296,7 @@ func _on_match_next_pressed() -> void:
 			at_last_match = false
 		else:
 			# TODO: toast / status when already at last match
-			trace_lvl(EneLog.LogLevel.NOTICE, "# TODO: pop for being at the bottom")
+			Log.lvl(Log.Level.NOTICE, "# TODO: pop for being at the bottom", self)
 			at_last_match = true
 			return
 
@@ -463,9 +463,9 @@ func do_search() -> void:
 	# TODO: pick search fn from case / word / regex toggles.
 	match_results = _rtl_p_cache.reduce(basic_search.bind(search_info), {})
 
-	trace_lvl(EneLog.LogLevel.INFO, "line_cache.size: %s" % [_rtl_p_cache.size()])
+	Log.lvl(Log.Level.INFO, "line_cache.size: %s" % [_rtl_p_cache.size()], self)
 	if not _rtl_p_cache.is_empty():
-		trace_lvl(EneLog.LogLevel.INFO, "first line: %s" % _rtl_p_cache[0])
+		Log.lvl(Log.Level.INFO, "first line: %s" % _rtl_p_cache[0], self)
 	if not match_results.is_empty():
 		match_indices.assign(match_results.keys())
 		if current_match_idx > match_indices.size():
@@ -514,29 +514,29 @@ func clear_matches() -> void:
 
 # function assumes cached variables for draw are upto date.
 func is_character_visible( c_num:int ) -> int:
-	trace_lvl(EneLog.LogLevel.INFO, "is_character_visible( %d )" % [c_num])
+	Log.lvl(Log.Level.INFO, "is_character_visible( %d )" % [c_num], self)
 	var l_num:int = _rtl.get_character_line(c_num)
-	trace_lvl(EneLog.LogLevel.INFO, "char_line %s" % [l_num])
+	Log.lvl(Log.Level.INFO, "char_line %s" % [l_num], self)
 	var l_range:Vector2i = _rtl.get_line_range(l_num)
-	trace_lvl(EneLog.LogLevel.INFO, "line_range %s" % [l_range])
+	Log.lvl(Log.Level.INFO, "line_range %s" % [l_range], self)
 
 	var c_rect:Rect2 = _rtl_visible_content_rect
-	trace_lvl(EneLog.LogLevel.INFO, "visible_rect %s" % [c_rect])
+	Log.lvl(Log.Level.INFO, "visible_rect %s" % [c_rect], self)
 	var c_pos:Vector2 = c_rect.position
 	var c_scroll:float = _rtl_scroll_value
 
 	var l_rect:Rect2 = get_line_rect(l_num)
 	l_rect.position += c_pos
 	l_rect.position.y -= c_scroll
-	trace_lvl(EneLog.LogLevel.INFO, "line_rect %s" % [l_rect])
+	Log.lvl(Log.Level.INFO, "line_rect %s" % [l_rect], self)
 
 	if l_rect.position.y == 0:
-		trace_lvl(EneLog.LogLevel.INFO, "line_rect is at zero.")
+		Log.lvl(Log.Level.INFO, "line_rect is at zero.", self)
 		return 0
 	if l_rect.intersects(_rtl_visible_content_rect):
-		trace_lvl(EneLog.LogLevel.INFO, "line_rect is visible")
+		Log.lvl(Log.Level.INFO, "line_rect is visible", self)
 		return l_range.x - c_num
-	trace_lvl(EneLog.LogLevel.DEFAULT, "line_rect is not visible")
+	Log.lvl(Log.Level.DEFAULT, "line_rect is not visible", self)
 	return  c_num - l_range.x
 
 
@@ -546,18 +546,18 @@ func find_smallest(
 			guess_start: int = (size >> 1),
 			margin:int = 0
 			) -> int:
-	trace_lvl(EneLog.LogLevel.DEFAULT, "find_smallest( size: %d, func:%s, guess: %d, margin:%d)" % [
-			size, check_func.get_method(), guess_start, margin ])
+	Log.lvl(Log.Level.DEFAULT, "find_smallest( size: %d, func:%s, guess: %d, margin:%d)" % [
+			size, check_func.get_method(), guess_start, margin ], self)
 	assert( size > 0 )
 	var current:int = clamp(guess_start, 0, size - 1)
 	var largest:int = size
 	var smallest:int = 0
 
 	while current >= smallest and current < largest:
-		trace_lvl(EneLog.LogLevel.DEFAULT, "closing_window: (%s, %s)" % [smallest, largest])
-		trace_lvl(EneLog.LogLevel.DEFAULT, "current: %d" % current)
+		Log.lvl(Log.Level.DEFAULT, "closing_window: (%s, %s)" % [smallest, largest], self)
+		Log.lvl(Log.Level.DEFAULT, "current: %d" % current, self)
 		var step:int = check_func.call(current)
-		trace_lvl(EneLog.LogLevel.DEFAULT, "step: %d" % step)
+		Log.lvl(Log.Level.DEFAULT, "step: %d" % step, self)
 		if abs(step) <= margin: return current # within margin
 
 		# Shrink window based on sign (monotonic assumption)
@@ -1070,51 +1070,13 @@ func draw_debug_text( position:Vector2, msg:String )-> void:
 		HORIZONTAL_ALIGNMENT_LEFT, -1, _debug_font_size, -1, fg_color)
 
 
-# BEGIN_SNIPPET:trace
-func                        __________TRACE__________              ()->void:pass
-##    │ _____            _
-##[br]│|_   _| _ __ _ __(_)_ _  __ _
-##[br]│  | || '_/ _` / _| | ' \/ _` |
-##[br]│  |_||_| \__,_\__|_|_||_\__, |
-##[br]╰────────────────────────|___/───
-@export_category('Trace')
-
-## Pull in LogLevel
-const LogLevel = EneLog.LogLevel
-
-## Set the log-level for the Class
-static var class_lvl:int = LogLevel.SILENT
-
-## Set the log-level for the Class instance
-## [br]Only Tracing with lvl below local and class level will be printed.
-## [br]Levels are increasing in verbosity, SILENT=0, CRITICAL=1 etc.
-## [br]Levels are also bitflags, and only the lowest two bytes are tested.
-@export_enum("SILENT:0","CRITICAL:1","ERROR:2","WARNING:4",
-		"DEFAULT:8","NOTICE:16","DEBUG:32","TRACE:64","MASK:255")
-var local_lvl:int = LogLevel.SILENT
-
-## Method to facilitate (Node).propagate_call( &'set_local_lvl', lvl )
-func set_local_lvl(lvl:int = 0) -> void: local_lvl = lvl
-
-## Trace function calls with args in a dictionary, outputs rich text with links.
+#region trace
+const Log = preload( "uid://cg53dplfs48lb" )
+static var class_lvl:int = Log.Level.SILENT
+@export_enum( "SILENT:0", "CRITICAL:1", "ERROR:3", "WARNING:7",
+		"NOTICE:15", "INFO:31", "DEBUG:63", "TRACE:127", "MASK:255" )
+var local_lvl:int = Log.Level.SILENT
 func trace( args:Dictionary = {}, object:Object = self,
-			stack:Array = EneLog.get_stack_popped(1) ) -> void:
-	if not EneLog.check_level(LogLevel.TRACE, self):
-		return
-	EneLog.trace( args, stack, object )
-
-## print log
-func trace_lvl( lvl:int, content:Variant, object:Object = null,
-			stack:Array = EneLog.get_stack_popped() ) -> void:
-	if not EneLog.check_level(lvl, self):
-		return
-	var pre:String
-	if lvl < LogLevel.DEFAULT:
-		pre = (LogLevel.find_key(lvl) + ": ")
-	if content is Array:
-		var arr:Array = content
-		content = ' '.join(arr.map(str))
-	if content is Dictionary:
-		content = JSON.stringify(content, '  ')
-	EneLog.printy( pre + str(content), null, object, "", stack )
-# END_SNIPPET
+			stack:Array = Log.get_stack_popped( 1 ) ) -> void:
+	Log.trace( args, object, stack )
+#endregion

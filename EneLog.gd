@@ -30,6 +30,12 @@ const TWEAK_OPTS = preload("uid://dhpivfj5v8omf")
 const MAX_INT:int = 0x7FFF_FFFF_FFFF_FFFF
 const MIN_INT:int = -0x8000_0000_0000_0000
 
+## Lines held before a main-thread append. Every held line is written.
+const FILE_LOG_BATCH:int = 64
+## Tail flush while logging stays enabled. Seconds.
+const FILE_LOG_FLUSH_SEC:float = 0.25
+const FILE_LOG_DIR:String = "user://logs"
+
 const ESC: String            = "\u001B"                  # ESC character (safe in Godot)
 const OSC_LINK_OPEN: String  = ESC + "]8;;"              # Start of OSC 8 hyperlink
 const OSC_ST: String         = ESC + "\\"                # String Terminator
@@ -73,6 +79,8 @@ var _default_level: int = LogLevel.INCLUSIVE_NOTICE
 
 class LogCtx:
 	var content: Variant
+	## Event for the console and file masks. 0 is an unleveled line.
+	var level: int = 0
 	var args: Array[Variant] = []
 	var object: Object = null
 	var indent: String = ""
@@ -149,6 +157,11 @@ func                        ________PROPERTIES_______              ()->void:pass
 
 var disabled:bool = false
 var max_level:int = LogLevel.MASK # aka all logging
+## Engine printer mask. [constant LogLevel.MASK] keeps every line the existing gate already allowed.
+## Tested by the event's highest set bit, so [constant LogLevel.INCLUSIVE_NOTICE] is a ceiling.
+var console_level:int = LogLevel.MASK
+## File batch mask. Independent of [member console_level], same default and same bit test.
+var file_level:int = LogLevel.MASK
 var reset:bool = true
 var top_level:bool = true
 
@@ -159,6 +172,20 @@ var threshold:int = 1000
 var delay_amount:int = 100
 var last_frame:int = 0
 var last_pframe:int = 0
+
+# File fork. The debugger print handler drops past max_chars_per_second.
+var _file_log_active:bool = false
+var _file_log_failed:bool = false
+var _file_log_announced:bool = false
+var _file_log_flush_queued:bool = false
+var _file_log_writing:bool = false
+var _file_log_path:String = ""
+var _file_log:FileAccess = null
+var _file_log_lines:Array[String] = []
+var _file_log_mutex:Mutex = Mutex.new()
+var _file_bbcode:RegEx
+var _file_osc:RegEx
+var _file_log_timer:Timer
 
 # Stack Flow (shared for continuity)
 var prev_stack_mutex := Mutex.new()
@@ -280,6 +307,12 @@ func _ready() -> void:
 		push_error("emit autoload ready failed: %s" % error_string(emit_err))
 
 
+## Drain the file batch before the autoload leaves the tree.
+func _exit_tree() -> void:
+	# disable() may already have closed the file. A second stop is empty.
+	_file_log_stop()
+
+
 #                    ██████  ██████  ██ ███    ██ ████████                     #
 #                    ██   ██ ██   ██ ██ ████   ██    ██                        #
 #                    ██████  ██████  ██ ██ ██  ██    ██                        #
@@ -306,15 +339,18 @@ func trace(args: Dictionary = {}, stack: Array = [], object: Object = null) -> v
 			'[color=57b3ff]{function}[/color]'.format(call_site)),
 		"(", ', '.join(args3), ")"
 	]
-	printy("".join(parts), [], object, "", stack)
+	printy( "".join( parts ), [], object, "", stack, LogLevel.TRACE )
 
 
+## Pretty-print [param content]. [param level] selects the console and file masks.
+## 0 keeps both sinks.
 func printy(
 			content:Variant,
 			args_in:Variant = null,
 			object:Object = null,
 			indent:String = "",
-			custom_stack:Array[Dictionary] = [] ) -> void:
+			custom_stack:Array[Dictionary] = [],
+			level:int = 0 ) -> void:
 	if disabled:
 		return
 	if OS.get_thread_caller_id() in thread_filter:
@@ -329,10 +365,11 @@ func printy(
 
 	if content is PackedByteArray:
 		var bytes:PackedByteArray = content
-		print(_sbytes(bytes))
+		_emit( _sbytes( bytes ), false, level )
 		return
 
 	var ctx := _build_context(content, args_in, object, indent, custom_stack)
+	ctx.level = level
 
 	if _is_ignored(ctx): return
 
@@ -383,7 +420,7 @@ func ptrace() -> void:
 	var call_site:Dictionary = get_stack()[1]
 	var line:String = link('{source}:{line}'.format(call_site),
 		"[color=57b3ff]{function}[/color]".format(call_site))
-	print_rich( "[color=%s]%s[/color]" % [colour, line] )
+	_emit( "[color=%s]%s[/color]" % [colour, line], true, LogLevel.TRACE )
 
 
 func plog( level:int, ...message:Array ) -> void:
@@ -391,7 +428,7 @@ func plog( level:int, ...message:Array ) -> void:
 	if OS.get_thread_caller_id() in thread_filter:return
 	var colour:String = get_colour(level).to_html()
 	var padding:String = "".lpad(get_stack().size()-1, '\t') if level == LogLevel.TRACE else ""
-	print_rich( padding + "[color=%s]%s[/color]" % [colour, ' '.join(message)] )
+	_emit( padding + "[color=%s]%s[/color]" % [colour, ' '.join(message)], true, level )
 
 
 func plog_check( level:int, ...message:Array ) -> bool:
@@ -410,10 +447,18 @@ func                        _________METHODS_________              ()->void:pass
 func lvl( level:int ) -> bool:
 	return _default_level >= level
 
-func disable() -> void: disabled = true
+## Turn printing off, flush the batch, and close the file.
+func disable() -> void:
+	# [member disabled] stops [method printy]. The batch still drains.
+	disabled = true
+	_file_log_stop()
 
 
-func enable() -> void: disabled = false
+## Turn printing on and start the file batch timer.
+func enable() -> void:
+	# The path is published here. The file opens on the first flush.
+	disabled = false
+	_file_log_start()
 
 
 func get_level() -> int:
@@ -560,6 +605,7 @@ func link( url:String, text:String = "" ) -> String:
 func strip_bbcode(s: String) -> String:
 	var regex := RegEx.new()
 	if regex.compile("\\[.*?\\]") != OK:
+		# FIXME, compile the regex once.
 		return "regex error"
 	return regex.sub(s, "", true)
 
@@ -1160,18 +1206,57 @@ func _split_plain_text(s: String) -> Array[String]:
 	return result
 
 
+## True when [param mask] includes the highest set bit of [param level].
+## [param level] of 0 is an unleveled [method printy] and passes.
+func _sink_allows( mask:int, level:int ) -> bool:
+	# Inclusive masks stay ceilings. [method lvl] keeps its integer compare.
+	if level <= 0:
+		return true
+	return ( mask & _highest_bit( level ) ) != 0
+
+
+## Highest set bit of [param level], so an inclusive value still names one event.
+func _highest_bit( level:int ) -> int:
+	# Same reduction the logging facade uses for an event check.
+	var bit:int = 1
+	var v:int = level
+	while v > 1:
+		v >>= 1
+		bit <<= 1
+	return bit
+
+
+## Send one line to each sink whose mask allows [param level].
+## [param rich] selects [method @GlobalScope.print_rich]. Otherwise [method @GlobalScope.print].
+## [param level] of 0 reaches both sinks.
+func _emit( text:String, rich:bool = true, level:int = 0 ) -> void:
+	# [member console_level] and [member file_level] split the sinks. The gate already ran.
+	if _sink_allows( file_level, level ):
+		_file_log_push( text )
+	if not _sink_allows( console_level, level ):
+		return
+	if rich:
+		print_rich( text )
+	else:
+		print( text )
+
+
 func _print_normal(ctx: LogCtx) -> void:
 	# Return Flow
 	if ctx.distance < 0:
-		print_rich( ctx.left,
+		_emit( "".join( [
+			ctx.left,
 			"" if ctx.msg_icon.is_empty() else ' ',
-			ctx.flow_return)
+			ctx.flow_return,
+		] ), true, ctx.level )
 
 	# Newline
-	if ctx.newline: print()
+	if ctx.newline:
+		_emit( "", false, ctx.level )
 
 	# Line Before
-	if not ctx.before.is_empty(): print_rich(ctx.before)
+	if not ctx.before.is_empty():
+		_emit( ctx.before, true, ctx.level )
 
 	var mid:String = ''.join([
 		ctx.msg_icon,
@@ -1185,39 +1270,266 @@ func _print_normal(ctx: LogCtx) -> void:
 
 	for i in wrapped_lines.size():
 		if i == 0:
-			print_rich(ctx.left, mid, wrapped_lines[i])
+			_emit( "".join( [ctx.left, mid, wrapped_lines[i]] ), true, ctx.level )
 			continue
 
-		print_rich(reflow_left, " ".repeat(ctx.flow.length()-1), '    ',  wrapped_lines[i])
+		_emit( "".join( [
+			reflow_left,
+			" ".repeat( ctx.flow.length() - 1 ),
+			'    ',
+			wrapped_lines[i],
+		] ), true, ctx.level )
 
 	# Line After
-	if not ctx.after.is_empty(): print_rich(ctx.after)
+	if not ctx.after.is_empty():
+		_emit( ctx.after, true, ctx.level )
 
 
 func _print_as_error(ctx: LogCtx) -> void:
-	print_rich("".join([
+	_emit( "".join( [
 		"[pulse freq=2 color=#FFFFFF70]",
 		ctx.left, ctx.msg_icon, ctx.flow, ctx.call_site, ctx.header,
 		"[color=red]", strip_bbcode(ctx.msg), "[/color]",
 		"[/pulse]"
-	]))
+	] ), true, ctx.level )
 	var stack:Array = ctx.stack
 	for idx:int in range(1,stack.size()):
 		var frame:Dictionary = stack[idx]
-		print_rich("[color=salmon]" + link("{source}:{line}".format(frame)) + ":{function}[/color]".format(frame))
+		_emit( "[color=salmon]" + link("{source}:{line}".format(frame)) + ":{function}[/color]".format(frame), true, ctx.level )
 
 
 func _print_as_warning(ctx: LogCtx) -> void:
-	print_rich("".join([
+	_emit( "".join( [
 		"[pulse freq=2 color=gold]",
 		ctx.left, ctx.msg_icon, ctx.flow, ctx.call_site, ctx.header,
 		"[color=yellow]", strip_bbcode(ctx.msg), "[/color]",
 		"[/pulse]"
-	]))
+	] ), true, ctx.level )
 	var stack:Array = ctx.stack
 	for idx:int in range(1,stack.size()):
 		var frame:Dictionary = stack[idx]
-		print_rich(link("{source}:{line}".format(frame)) + ":{function}".format(frame))
+		_emit( link("{source}:{line}".format(frame)) + ":{function}".format(frame), true, ctx.level )
+
+
+## Queue one plain line. [FileAccess] stays on the main thread.
+func _file_log_push( text:String ) -> void:
+	# Workers append under the lock. A full batch is written or deferred.
+	var on_main := OS.get_thread_caller_id() == OS.get_main_thread_id()
+	_file_log_mutex.lock()
+	if not _file_log_active or _file_log_failed:
+		_file_log_mutex.unlock()
+		return
+	_file_log_lines.append( _file_plain( text ) )
+	var count := _file_log_lines.size()
+	var defer_flush := false
+	if count >= FILE_LOG_BATCH and not on_main and not _file_log_flush_queued:
+		_file_log_flush_queued = true
+		defer_flush = true
+	_file_log_mutex.unlock()
+
+	if on_main and count >= FILE_LOG_BATCH:
+		_file_log_flush()
+	elif defer_flush:
+		_file_log_flush.call_deferred()
+
+
+## Append the current batch. Main thread only; workers defer one call.
+func _file_log_flush() -> void:
+	# [member _file_log_writing] ignores a re-entrant flush from inside the write.
+	if OS.get_thread_caller_id() != OS.get_main_thread_id():
+		_file_log_mutex.lock()
+		var already:bool = _file_log_flush_queued
+		if not already:
+			_file_log_flush_queued = true
+		_file_log_mutex.unlock()
+		if not already:
+			_file_log_flush.call_deferred()
+		return
+	if _file_log_writing:
+		return
+
+	var batch:Array[String] = _file_log_take( false )
+	_file_log_writing = true
+	_file_log_write( batch )
+	_file_log_writing = false
+
+
+## Publish the log path and run the tail timer.
+func _file_log_start() -> void:
+	# The dock line is one [method @GlobalScope.print_rich], before the char budget is spent.
+	_file_log_timer_ready()
+	if _file_log_path.is_empty():
+		_file_log_assign_path()
+	_file_log_mutex.lock()
+	_file_log_active = true
+	_file_log_failed = false
+	_file_log_mutex.unlock()
+	if not _file_log_announced:
+		_file_log_announced = true
+		print_rich( ProjectSettings.globalize_path( _file_log_path ) )
+	_file_log_timer_arm()
+
+
+## Flush what remains, then close the file.
+func _file_log_stop() -> void:
+	# The active flag and the take share one lock, so the tail stays in this batch.
+	var batch:Array[String] = _file_log_take( true )
+	if OS.get_thread_caller_id() != OS.get_main_thread_id():
+		_file_log_finish_stop.call_deferred( batch )
+		return
+	_file_log_finish_stop( batch )
+
+
+## Stop the timer, write [param batch], and close the handle.
+func _file_log_finish_stop( batch:Array[String] ) -> void:
+	# A second stop after [method disable] has an empty batch and a null handle.
+	if tree_entered.is_connected( _file_log_timer_arm ):
+		tree_entered.disconnect( _file_log_timer_arm )
+	if _file_log_timer != null:
+		_file_log_timer.stop()
+	if not batch.is_empty():
+		_file_log_write( batch )
+	if _file_log != null:
+		_file_log.flush()
+		_file_log.close()
+		_file_log = null
+
+
+## Swap out the queued lines. [param stopping] rejects later appends.
+func _file_log_take( stopping:bool ) -> Array[String]:
+	# The active flag and the array move together so the tail is not left behind.
+	_file_log_mutex.lock()
+	if stopping:
+		_file_log_active = false
+	_file_log_flush_queued = false
+	var batch:Array[String] = []
+	batch.append_array( _file_log_lines )
+	_file_log_lines.clear()
+	_file_log_mutex.unlock()
+	return batch
+
+
+## Append [param batch] and flush the handle to disk.
+func _file_log_write( batch:Array[String] ) -> void:
+	# An empty tick must not create the file.
+	if batch.is_empty() or _file_log_failed:
+		return
+	if not _file_log_ensure():
+		return
+	var wrote:bool = _file_log.store_string( "\n".join( batch ) + "\n" )
+	if not wrote:
+		_file_log_fail( "write %s" % _file_log_path )
+		return
+	_file_log.flush()
+
+
+## Open [member _file_log_path] for append, writing the absolute path as the first line.
+func _file_log_ensure() -> bool:
+	# Later [method enable] calls reopen the same path at end, without a second header.
+	if _file_log != null:
+		return true
+	if _file_log_failed:
+		return false
+	if _file_log_path.is_empty():
+		_file_log_assign_path()
+
+	var log_dir:String = ProjectSettings.globalize_path( FILE_LOG_DIR )
+	var mk:Error = DirAccess.make_dir_recursive_absolute( log_dir )
+	if mk != OK and mk != ERR_ALREADY_EXISTS:
+		_file_log_fail( "mkdir %s: %s" % [log_dir, error_string( mk )] )
+		return false
+
+	var exists:bool = FileAccess.file_exists( _file_log_path )
+	var mode:FileAccess.ModeFlags = FileAccess.READ_WRITE if exists else FileAccess.WRITE
+	_file_log = FileAccess.open( _file_log_path, mode )
+	if _file_log == null:
+		_file_log_fail( "open %s: %s" % [_file_log_path, error_string( FileAccess.get_open_error() )] )
+		return false
+	if exists:
+		_file_log.seek_end()
+	if _file_log.get_length() == 0:
+		var abs_path:String = ProjectSettings.globalize_path( _file_log_path )
+		var wrote:bool = _file_log.store_string( abs_path + "\n" )
+		if not wrote:
+			_file_log_fail( "write header %s" % abs_path )
+			return false
+	return true
+
+
+## Remember one open failure and report it once outside [method printy].
+func _file_log_fail( why:String ) -> void:
+	# [method @GlobalScope.push_error] is the report. It does not enter [method _emit].
+	_file_log_mutex.lock()
+	var first:bool = not _file_log_failed
+	_file_log_failed = true
+	_file_log_mutex.unlock()
+	if first:
+		push_error( "EneLog file log: " + why )
+
+
+## Choose [code]user://logs/enelog-<stamp>-<pid>.log[/code] once per process.
+func _file_log_assign_path() -> void:
+	# Colons are omitted so the stamp is a Windows file name.
+	var dt:Dictionary = Time.get_datetime_dict_from_system()
+	var stamp := "%04d%02d%02d-%02d%02d%02d" % [
+		dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second]
+	_file_log_path = FILE_LOG_DIR.path_join(
+		"enelog-%s-%d.log" % [stamp, OS.get_process_id()] )
+
+
+## Start the tail timer once this autoload is inside the tree.
+func _file_log_timer_arm() -> void:
+	# [method enable] can run before enter-tree. [Timer] refuses [method Timer.start] until then.
+	if not _file_log_active or _file_log_timer == null:
+		return
+	if not is_inside_tree():
+		if not tree_entered.is_connected( _file_log_timer_arm ):
+			var conn:Error = tree_entered.connect( _file_log_timer_arm, CONNECT_ONE_SHOT ) as Error
+			if conn != OK:
+				push_error( "EneLog file log timer: %s" % error_string( conn ) )
+		return
+	if _file_log_timer.is_stopped():
+		_file_log_timer.start()
+
+
+## Keep one repeating timer for the tail flush.
+func _file_log_timer_ready() -> void:
+	# The node survives an editor script reload, so reuse [code]FileLogTimer[/code] when it is already there.
+	if _file_log_timer != null:
+		return
+	var found:Node = get_node_or_null( "FileLogTimer" )
+	if found is Timer:
+		_file_log_timer = found
+	else:
+		_file_log_timer = Timer.new()
+		_file_log_timer.name = "FileLogTimer"
+		add_child( _file_log_timer )
+	_file_log_timer.wait_time = FILE_LOG_FLUSH_SEC
+	_file_log_timer.one_shot = false
+	_file_log_timer.process_mode = Node.PROCESS_MODE_ALWAYS
+	if not _file_log_timer.timeout.is_connected( _file_log_flush ):
+		var conn:Error = _file_log_timer.timeout.connect( _file_log_flush ) as Error
+		if conn != OK:
+			push_error( "EneLog file log timer: %s" % error_string( conn ) )
+
+
+## Strip OSC hyperlinks, then BBCode, with cached patterns.
+func _file_plain( text:String ) -> String:
+	# [method link] puts a [code]][/code] inside the OSC sequence, so the tag regex runs after that sequence is gone.
+	if _file_osc == null:
+		var osc := RegEx.new()
+		if osc.compile( "\u001b\\]8;;.*?\u001b\\\\" ) == OK:
+			_file_osc = osc
+	if _file_bbcode == null:
+		var compiled := RegEx.new()
+		if compiled.compile( "\\[.*?\\]" ) == OK:
+			_file_bbcode = compiled
+	var plain := text
+	if _file_osc != null:
+		plain = _file_osc.sub( plain, "", true )
+	if _file_bbcode != null:
+		plain = _file_bbcode.sub( plain, "", true )
+	return plain
 
 
 func _save_stack(stack: Array[Dictionary]) -> void:
