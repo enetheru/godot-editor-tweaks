@@ -50,10 +50,7 @@
 ##[br][color=goldenrod]TODO[/color]: have a URL we can point to and verify we
 ## have the latest version.
 
-# Host logger: sequential LogLevel + HintEnum + bitmask helpers (print_helper).
-# FIXME: prefer autoload EneLog once levels are unified.
-const Print = preload("uid://hetq57iwhpjm")
-const LogLevel = Print.LogLevel
+const Log = preload( "../logging.gd" )
 
 
 # ██████  ██████   ██████  ██████  ███████ ██████  ████████ ██ ███████ ███████ #
@@ -85,7 +82,7 @@ signal settings_changed( setting_name:StringName, value:Variant )
 func                        __________EVENTS_________              ()->void:pass
 
 func _on_project_settings_changed() -> void:
-	Print.plog(LogLevel.TRACE, "_on_project_settings_changed")
+	Log.lvl( Log.Level.TRACE, "_on_project_settings_changed", self )
 	update_target.call_deferred()
 
 
@@ -121,9 +118,36 @@ func _init( target:Object, prefix:String = "plugin/un-named" ) -> void:
 #         ██      ██ ███████    ██    ██   ██  ██████  ██████  ███████         #
 func                        _________METHODS_________              ()->void:pass
 
+## Name from [param enum_name] on [code]@GlobalScope[/code] equal to [param value].
+func _global_enum_name( enum_name:StringName, value:int ) -> String:
+	# Native enums have no find_key.
+	var constants:PackedStringArray = ClassDB.class_get_enum_constants(
+			&"@GlobalScope", enum_name )
+	for key:String in constants:
+		if ClassDB.class_get_integer_constant( &"@GlobalScope", StringName(key) ) == value:
+			return key
+	return str(value)
+
+
+## Single-bit names from [param enum_name] set in [param value].
+func _global_enum_flags( enum_name:StringName, value:int ) -> PackedStringArray:
+	# A combined flag matches whenever its parts are set, so only powers of two count.
+	var names := PackedStringArray()
+	var constants:PackedStringArray = ClassDB.class_get_enum_constants(
+			&"@GlobalScope", enum_name )
+	for key:String in constants:
+		var bit:int = ClassDB.class_get_integer_constant( &"@GlobalScope", StringName(key) )
+		if bit == 0 or (bit & (bit - 1)) != 0:
+			continue
+		if value & bit:
+			if not names.push_back( key ):
+				break
+	return names
+
+
 ## Register target properties as ProjectSettings under [member _prefix].
 func add_target_properties() -> void:
-	Print.plog(LogLevel.TRACE, "add_target_properties")
+	Log.lvl( Log.Level.TRACE, "add_target_properties", self )
 
 	var category:String
 	var group:String
@@ -135,22 +159,21 @@ func add_target_properties() -> void:
 	# Inspector grouping: unused group/subgroup prefixes reset that level.
 	for property:Dictionary in _target.get_property_list():
 		var property_name:String = property.name
-		Print.plog(LogLevel.TRACE, "\nproperty.name: ", property_name)
+		Log.lvl( Log.Level.TRACE, ["property.name:", property_name], self )
 		var property_type:int = property.type
-		Print.plog(LogLevel.TRACE, "property.type: ", type_string(property_type))
+		Log.lvl( Log.Level.TRACE, ["property.type:", type_string(property_type)], self )
 		var property_hint:int = property.hint
-		Print.plog(LogLevel.TRACE, "property.hint: ",
-			Print.HintEnum.find_key(property_hint))
+		Log.lvl( Log.Level.TRACE,
+				["property.hint:", _global_enum_name(&"PropertyHint", property_hint)], self )
 		var hint_string:String = property.hint_string
-		Print.plog(LogLevel.TRACE, "property.hint_string: ", hint_string)
+		Log.lvl( Log.Level.TRACE, ["property.hint_string:", hint_string], self )
 
 		var usage:int = property.usage
-		var usage_bits:PackedByteArray = Print.bitmask_array(usage, 30)
-		var usage_flags:PackedStringArray = Print.get_usage_flags(usage_bits)
-		Print.plog(LogLevel.TRACE, "property.usage: ", usage_flags)
+		Log.lvl( Log.Level.TRACE,
+				["property.usage:", _global_enum_flags(&"PropertyUsageFlags", usage)], self )
 
 		var property_value:Variant = _target.get(property_name)
-		Print.plog(LogLevel.TRACE, "value: ", property_value)
+		Log.lvl( Log.Level.TRACE, ["value:", property_value], self )
 
 		if property.usage & PROPERTY_USAGE_CATEGORY:
 			if property_name == _target_file:
@@ -190,7 +213,7 @@ func add_target_properties() -> void:
 
 		if subgroup and subgroup_prefix:
 			if property_name.begins_with(subgroup_prefix):
-				Print.plog(LogLevel.TRACE, "matched subgroup_prefix")
+				Log.lvl( Log.Level.TRACE, "matched subgroup_prefix", self )
 				setting_name = property_name.trim_prefix(subgroup_prefix)
 				trimmed = true
 				group_level = 2
@@ -202,7 +225,7 @@ func add_target_properties() -> void:
 		if group_level == 0:
 			if group_prefix:
 				if property_name.begins_with(group_prefix):
-					Print.plog(LogLevel.TRACE, "match group_prefix")
+					Log.lvl( Log.Level.TRACE, "match group_prefix", self )
 					setting_name = property_name.trim_prefix(group_prefix)
 					trimmed = true
 					group_level = 1
@@ -225,19 +248,19 @@ func add_target_properties() -> void:
 		var setting_path:String = "/".join(parts)
 		var setting_full:String = setting_path.path_join(setting_name)
 
-		Print.plog(LogLevel.TRACE, "Category: ", category)
-		Print.plog(LogLevel.TRACE, "Group: ", [group, group_prefix])
-		Print.plog(LogLevel.TRACE, "SubGroup: ", [subgroup, subgroup_prefix])
-		Print.plog(LogLevel.TRACE, "group_level: ", group_level)
-		Print.plog(LogLevel.TRACE, "Trimmed: ", trimmed)
-		Print.plog(LogLevel.TRACE, "Setting Path: ", setting_path)
-		Print.plog(LogLevel.TRACE, "Setting Name: ", setting_name)
-		Print.plog(LogLevel.TRACE, "Setting_full: ", setting_full)
+		Log.lvl( Log.Level.TRACE, ["Category:", category], self )
+		Log.lvl( Log.Level.TRACE, ["Group:", group, group_prefix], self )
+		Log.lvl( Log.Level.TRACE, ["SubGroup:", subgroup, subgroup_prefix], self )
+		Log.lvl( Log.Level.TRACE, ["group_level:", group_level], self )
+		Log.lvl( Log.Level.TRACE, ["Trimmed:", trimmed], self )
+		Log.lvl( Log.Level.TRACE, ["Setting Path:", setting_path], self )
+		Log.lvl( Log.Level.TRACE, ["Setting Name:", setting_name], self )
+		Log.lvl( Log.Level.TRACE, ["Setting_full:", setting_full], self )
 
 		if property_value \
 		and property_type == TYPE_CALLABLE \
 		and property_hint & PROPERTY_HINT_TOOL_BUTTON:
-			Print.plog(LogLevel.TRACE, "is button")
+			Log.lvl( Log.Level.TRACE, "is button", self )
 			var button_func:Callable = property_value
 			# Full path so buttons sit under the same prefix as other settings.
 			add_callable_as_button(setting_full, button_func, hint_string)
@@ -266,19 +289,19 @@ func add_target_properties() -> void:
 
 ## Pull ProjectSettings values into the target; emit [signal settings_changed].
 func update_target() -> void:
-	Print.plog(LogLevel.TRACE, "update_target")
+	Log.lvl( Log.Level.TRACE, "update_target", self )
 	for setting_name:String in setting_prop_map.keys():
 		var new_val:Variant = ProjectSettings.get(setting_name)
 		var prop_name:StringName = setting_prop_map[setting_name]
 		if new_val == _target.get(prop_name):
 			continue
-		Print.plog(LogLevel.TRACE, "Updating '%s' : %s" % [setting_name, new_val])
+		Log.lvl( Log.Level.TRACE, "Updating '%s' : %s" % [setting_name, new_val], self )
 		_target.set(prop_name, new_val)
 		settings_changed.emit(prop_name, new_val)
 
 
 func inspect_target() -> void:
-	Print.plog(LogLevel.TRACE, "inspect_target")
+	Log.lvl( Log.Level.TRACE, "inspect_target", self )
 	EditorInterface.inspect_object(_target)
 
 
@@ -296,7 +319,7 @@ func                        __________STATIC_________              ()->void:pass
 ## [code]editor_plugins/enabled[/code]. Whole-project discovery — not this
 ## helper's install path.
 static func get_all_plugins_info( only_loaded:bool = false ) -> Array[Dictionary]:
-	Print.plog(LogLevel.TRACE, "get_all_plugins_info")
+	Log.lvl( Log.Level.TRACE, "get_all_plugins_info" )
 	var enabled_plugins:PackedStringArray = ProjectSettings.get_setting(
 		"editor_plugins/enabled")
 	var plugins_info:Array[Dictionary] = []
@@ -355,7 +378,7 @@ static func add_callable_as_button(
 			path:String,
 			callable:Callable,
 			label:String = callable.get_method().capitalize() ) -> void:
-	Print.plog(LogLevel.TRACE, "add_callable_as_button")
+	Log.lvl( Log.Level.TRACE, "add_callable_as_button" )
 	ProjectSettings.set(path, callable)
 	ProjectSettings.add_property_info({
 		&"name": path,
@@ -367,7 +390,7 @@ static func add_callable_as_button(
 
 ## Clear ProjectSettings under [param prefix] (skips TYPE_CALLABLE).
 static func erase_prefix( prefix:String ) -> void:
-	Print.plog(LogLevel.TRACE, "erase_prefix")
+	Log.lvl( Log.Level.TRACE, "erase_prefix" )
 	for property:Dictionary in ProjectSettings.get_property_list():
 		var setting_name:String = property.get(&"name")
 		if not setting_name.begins_with(prefix):

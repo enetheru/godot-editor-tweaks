@@ -5,8 +5,8 @@ extends EditorPlugin
 ##[br][color=tomato]FIXME[/color]: Plugin has grown past one concern. Split into
 ## focused modules (log discovery, Output log search, code-editor menus,
 ## settings, logging) with this file as a thin orchestrator.
-##[br][color=tomato]FIXME[/color]: Dual loggers — autoload [code]EneLog[/code]
-## ([code]EneLog.gd[/code]) vs static [code]print_helper.gd[/code]; unify levels.
+##[br][color=tomato]FIXME[/color]: [member ETLog] is a private [code]_EneLog[/code]
+## child. [member TweakOptions.verbosity] is copied onto its [code]_default_level[/code].
 ##[br][color=goldenrod]TODO[/color]: Dependency check before load (lazy plugin
 ## bootstrap, vim-lazy style).
 ##[br][color=goldenrod]TODO[/color]: monospace glyphs still stubbed.

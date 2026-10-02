@@ -10,13 +10,9 @@ extends Node
 ##
 ## Autoload name is [code]EneLog[/code] ([code]project.godot[/code]); class_name
 ## is [code]_EneLog[/code] so the autoload can own the global identifier.
-##[br][color=tomato]FIXME[/color]: Also lives as a dual of
-## [code]print_helper.gd[/code] (sequential levels) and is registered via
-## [code]Engine.register_singleton[/code] from the editor plugin — three entry
-## points for one concern. Pick one API surface.
-##[br][color=tomato]FIXME[/color]: [enum LogLevel] bitmasks vs sequential enums
-## in [TweakOptions] / print_helper; [member _default_level] comparisons use
-## integer [code]<[/code] which does not match flag-style verbosity.
+##[br][color=tomato]FIXME[/color]: [member TweakOptions.verbosity] is assigned
+## to [member _default_level]. [code]DEFAULT:8[/code] is [constant LogLevel.NOTICE]
+## and [code]NOTICE:16[/code] is [constant LogLevel.INFO].
 ##[br][color=goldenrod]TODO[/color]: [code]OS.delay_msec(4)[/code] in
 ## [method printy] is a blunt editor throttle — replace with rate limiting.
 ##[br][color=goldenrod]TODO[/color]: WorkerThreadPool.get_caller_task_id() for
