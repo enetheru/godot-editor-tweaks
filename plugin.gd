@@ -25,7 +25,7 @@ const Self = preload("uid://setvleg6sni3")
 const Util = preload("uid://blodm3bymovpt")
 
 
-const ExportPlugin = preload("uid://bc5mjhhigjigq")
+const ExportPlugin = preload("uid://dbn53jnkd5w36")
 
 const EditorIntegration = preload("uid://cl0kj8qvnhfam")
 
