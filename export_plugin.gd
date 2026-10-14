@@ -2,10 +2,9 @@
 extends EditorExportPlugin
 ## Skip paths listed in this addon's [code].exportignore[/code] during export.
 ##
-## Patterns are simple [method String.match] globs relative to the addon, or
-## path prefixes when they end with [code]/[/code].
-##[br][color=goldenrod]TODO[/color]: Support gitignore-style rules if this
-## grows beyond a few lines.
+## Patterns are [method String.match] globs relative to the addon, or path
+## prefixes when they end with [code]/[/code]. They never apply outside this
+## addon. [code]*[/code] skips the whole addon.
 
 const Self:Resource = preload("export_plugin.gd")
 
@@ -46,10 +45,13 @@ func _export_file(
 			path:String,
 			_type:String,
 			_features:PackedStringArray ) -> void:
+	if not path.begins_with(path_prefix):
+		return
+	var relative := path.trim_prefix(path_prefix)
 	for pattern:String in ignore_patterns:
 		if pattern.begins_with("./"):
 			pattern = pattern.trim_prefix("./")
-		if path.match(pattern) \
-		or path.begins_with(path_prefix + pattern.trim_suffix("/")):
+		var prefix := pattern.trim_suffix("/")
+		if relative.match(pattern) or (not prefix.is_empty() and relative.begins_with(prefix)):
 			skip()
 			return
