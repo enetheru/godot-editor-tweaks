@@ -1,2 +1,4 @@
 # Editor-only addon.
+export_plugin.gd
+export_plugin.gd.uid
 *
